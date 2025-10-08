@@ -718,6 +718,12 @@ function MultiPositionRadarCharts() {
       return;
     }
 
+    // Hide download button before capturing
+    const downloadButton = chartContainer.querySelector('.download-button-hide');
+    if (downloadButton) {
+      downloadButton.style.display = 'none';
+    }
+
     try {
       // Use html2canvas to capture the chart
       const canvas = await html2canvas(chartContainer, {
@@ -750,6 +756,11 @@ function MultiPositionRadarCharts() {
     } catch (error) {
       console.error('Error generating PNG:', error);
       alert('Failed to generate PNG: ' + error.message);
+    } finally {
+      // Show download button again
+      if (downloadButton) {
+        downloadButton.style.display = 'flex';
+      }
     }
   };
 
@@ -1167,20 +1178,20 @@ function MultiPositionRadarCharts() {
             </div>
 
             {currentPlayer ? (
-              <div 
+              <div
                 id="radar-chart-container"
                 className="rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ backgroundColor: bgColor }}
               >
-                <div 
-                  className="p-8 text-center relative"
+                <div
+                  className="px-12 py-10 text-center relative"
                   style={{
-                    background: comparisonMode 
+                    background: comparisonMode
                       ? 'linear-gradient(to bottom, rgba(0,0,0,0.03), transparent)'
                       : `linear-gradient(to bottom, ${secondaryColor}30, transparent)`
                   }}
                 >
-                  <div className="absolute top-4 right-4 flex gap-2">
+                  <div className="absolute top-4 right-4 flex gap-2 download-button-hide">
                     <button
                       onClick={downloadChartAsPNG}
                       className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
@@ -1276,13 +1287,13 @@ function MultiPositionRadarCharts() {
                 </div>
                 
                 {/* Credits */}
-                <div className="px-6 py-3 text-center border-t" style={{ 
+                <div className="px-6 py-4 text-center border-t" style={{
                   backgroundColor: comparisonMode ? bgColor : `${primaryColor}dd`,
                   borderColor: comparisonMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'
                 }}>
-                  <p className="text-xs" style={{ 
-                    color: textColor, 
-                    opacity: 0.5 
+                  <p className="text-sm font-medium" style={{
+                    color: textColor,
+                    opacity: 0.7
                   }}>
                     Tool created by Duncan Brookover • Data provided by PFF
                   </p>
