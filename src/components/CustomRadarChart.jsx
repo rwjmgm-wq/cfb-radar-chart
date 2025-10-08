@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, invertedStats = [], width = 1000, height = 1000, statDescriptions = {} }) => {
+const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, invertedStats = [], width = 1000, height = 1000, statDescriptions = {}, showPercentileLabels = true }) => {
   const [hoveredStat, setHoveredStat] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
@@ -94,7 +94,7 @@ const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, in
             {stat.stat}
           </text>
 
-          {percentiles.map((percentile, idx) => {
+          {showPercentileLabels && percentiles.map((percentile, idx) => {
             const radius = (maxRadius / numLevels) * (idx + 2);
             const point = polarToCartesian(angle, radius);
 

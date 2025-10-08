@@ -26,6 +26,7 @@ function MultiPositionRadarCharts() {
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedConference, setSelectedConference] = useState('');
   const [theme, setTheme] = useState('dark');
+  const [showPercentileLabels, setShowPercentileLabels] = useState(true);
 
   const currentPositionConfig = POSITION_CONFIGS[selectedPosition];
   const currentData = globalData;
@@ -1085,15 +1086,26 @@ function MultiPositionRadarCharts() {
                     <span className={`text-xs font-bold ${colors.textMuted}`}>⌨</span>
                   </button>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={comparisonMode}
-                    onChange={(e) => setComparisonMode(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Compare Mode</span>
-                </label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={comparisonMode}
+                      onChange={(e) => setComparisonMode(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Compare Mode</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={showPercentileLabels}
+                      onChange={(e) => setShowPercentileLabels(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Show Labels</span>
+                  </label>
+                </div>
               </div>
               
               <div className="grid md:grid-cols-2 gap-4">
@@ -1282,6 +1294,7 @@ function MultiPositionRadarCharts() {
                       comparisonMode={comparisonMode}
                       invertedStats={currentPositionConfig.invertedStats}
                       statDescriptions={currentPositionConfig.descriptions || {}}
+                      showPercentileLabels={showPercentileLabels}
                     />
                   </ErrorBoundary>
                 </div>
