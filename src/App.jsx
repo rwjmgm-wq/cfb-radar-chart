@@ -298,21 +298,6 @@ function MultiPositionRadarCharts() {
         });
       });
 
-      // Merge with player metadata (height, weight, year)
-      Object.keys(mergedData).forEach(playerName => {
-        if (playerMetadata[playerName]) {
-          if (!mergedData[playerName].height && playerMetadata[playerName].height) {
-            mergedData[playerName].height = playerMetadata[playerName].height;
-          }
-          if (!mergedData[playerName].weight && playerMetadata[playerName].weight) {
-            mergedData[playerName].weight = playerMetadata[playerName].weight;
-          }
-          if (!mergedData[playerName].year && playerMetadata[playerName].year) {
-            mergedData[playerName].year = playerMetadata[playerName].year;
-          }
-        }
-      });
-
       const merged = Object.values(mergedData);
 
       // Calculate statistics
