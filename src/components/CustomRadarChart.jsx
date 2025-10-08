@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
-const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, invertedStats = [], width = 800, height = 800, statDescriptions = {} }) => {
+const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, invertedStats = [], width = 1000, height = 1000, statDescriptions = {} }) => {
   const [hoveredStat, setHoveredStat] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const centerX = width / 2;
   const centerY = height / 2;
-  const maxRadius = 280;
+  const maxRadius = 320;
   const numLevels = 10;
 
   const numAxes = data.length;
@@ -63,7 +63,7 @@ const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, in
   const renderAxisLabels = () => {
     return data.map((stat, i) => {
       const angle = angleStep * i;
-      const labelDistance = maxRadius + 85;
+      const labelDistance = maxRadius + 100;
       const labelPoint = polarToCartesian(angle, labelDistance);
 
       const percentiles = [20, 30, 40, 50, 60, 70, 80, 90, 100];
