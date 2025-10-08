@@ -26,7 +26,6 @@ function MultiPositionRadarCharts() {
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedConference, setSelectedConference] = useState('');
   const [theme, setTheme] = useState('dark');
-  const [showPercentileLabels, setShowPercentileLabels] = useState(true);
 
   const currentPositionConfig = POSITION_CONFIGS[selectedPosition];
   const currentData = globalData;
@@ -1086,26 +1085,15 @@ function MultiPositionRadarCharts() {
                     <span className={`text-xs font-bold ${colors.textMuted}`}>⌨</span>
                   </button>
                 </div>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={comparisonMode}
-                      onChange={(e) => setComparisonMode(e.target.checked)}
-                      className="w-4 h-4 rounded"
-                    />
-                    <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Compare Mode</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={showPercentileLabels}
-                      onChange={(e) => setShowPercentileLabels(e.target.checked)}
-                      className="w-4 h-4 rounded"
-                    />
-                    <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Show Labels</span>
-                  </label>
-                </div>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={comparisonMode}
+                    onChange={(e) => setComparisonMode(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Compare Mode</span>
+                </label>
               </div>
               
               <div className="grid md:grid-cols-2 gap-4">
@@ -1294,7 +1282,6 @@ function MultiPositionRadarCharts() {
                       comparisonMode={comparisonMode}
                       invertedStats={currentPositionConfig.invertedStats}
                       statDescriptions={currentPositionConfig.descriptions || {}}
-                      showPercentileLabels={showPercentileLabels}
                     />
                   </ErrorBoundary>
                 </div>
@@ -1318,8 +1305,8 @@ function MultiPositionRadarCharts() {
                           </thead>
                           <tbody className={`${colors.bgSecondary} divide-y ${colors.border}`}>
                             {radarData.map((stat, idx) => {
-                              const value1 = stat.value1;
-                              const value2 = stat.value2;
+                              const value1 = stat.value1 ?? 0;
+                              const value2 = stat.value2 ?? 0;
                               const diff = value1 - value2;
                               const isInverted = currentPositionConfig.invertedStats?.includes(stat.statKey);
                               const player1Better = isInverted ? diff < 0 : diff > 0;
