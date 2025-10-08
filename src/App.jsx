@@ -1204,21 +1204,21 @@ function MultiPositionRadarCharts() {
                   </div>
                   {comparisonMode && comparePlayer ? (
                     <div>
-                      <h2 className="text-5xl font-bold mb-6" style={{ color: textColor }}>Player Comparison</h2>
-                      <div className="flex justify-center gap-12 mb-6">
+                      <h2 className="text-5xl font-bold mb-8 leading-tight" style={{ color: textColor, lineHeight: '1.2' }}>Player Comparison</h2>
+                      <div className="flex justify-center gap-12 mb-8">
                         <div className="text-left">
-                          <div className="flex items-center gap-3 mb-2">
+                          <div className="flex items-center gap-3 mb-3">
                             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: primaryColor }}></div>
-                            <h3 className="text-3xl font-bold" style={{ color: primaryColor }}>{currentPlayer.player}</h3>
+                            <h3 className="text-3xl font-bold leading-tight" style={{ color: primaryColor, lineHeight: '1.2' }}>{currentPlayer.player}</h3>
                           </div>
-                          <p className="text-lg ml-7" style={{ opacity: 0.85, color: textColor, fontWeight: 500 }}>{normalizeTeamName(currentPlayer.team_name)}</p>
+                          <p className="text-lg ml-7 leading-relaxed" style={{ opacity: 0.85, color: textColor, fontWeight: 500, lineHeight: '1.5' }}>{normalizeTeamName(currentPlayer.team_name)}</p>
                           {(currentPlayer.position || currentPlayer.pos) && (
-                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.8, color: textColor, fontWeight: 600 }}>
+                            <p className="text-sm ml-7 mt-2 leading-normal" style={{ opacity: 0.8, color: textColor, fontWeight: 600, lineHeight: '1.6' }}>
                               {(currentPlayer.position || currentPlayer.pos).toUpperCase()}
                             </p>
                           )}
                           {(currentPlayer.height || currentPlayer.weight || currentPlayer.year) && (
-                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
+                            <p className="text-sm ml-7 mt-2 leading-normal" style={{ opacity: 0.7, color: textColor, lineHeight: '1.6' }}>
                               {currentPlayer.height && `${currentPlayer.height}"`}
                               {currentPlayer.height && currentPlayer.weight && ' • '}
                               {currentPlayer.weight && `${currentPlayer.weight} lbs`}
@@ -1227,20 +1227,20 @@ function MultiPositionRadarCharts() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center text-3xl opacity-50 font-bold" style={{ color: textColor }}>vs</div>
+                        <div className="flex items-center text-3xl opacity-50 font-bold leading-none" style={{ color: textColor, lineHeight: '1' }}>vs</div>
                         <div className="text-left">
-                          <div className="flex items-center gap-3 mb-2">
+                          <div className="flex items-center gap-3 mb-3">
                             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: player2Color }}></div>
-                            <h3 className="text-3xl font-bold" style={{ color: player2Color }}>{comparePlayer.player}</h3>
+                            <h3 className="text-3xl font-bold leading-tight" style={{ color: player2Color, lineHeight: '1.2' }}>{comparePlayer.player}</h3>
                           </div>
-                          <p className="text-lg ml-7" style={{ opacity: 0.85, color: textColor, fontWeight: 500 }}>{normalizeTeamName(comparePlayer.team_name)}</p>
+                          <p className="text-lg ml-7 leading-relaxed" style={{ opacity: 0.85, color: textColor, fontWeight: 500, lineHeight: '1.5' }}>{normalizeTeamName(comparePlayer.team_name)}</p>
                           {(comparePlayer.position || comparePlayer.pos) && (
-                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.8, color: textColor, fontWeight: 600 }}>
+                            <p className="text-sm ml-7 mt-2 leading-normal" style={{ opacity: 0.8, color: textColor, fontWeight: 600, lineHeight: '1.6' }}>
                               {(comparePlayer.position || comparePlayer.pos).toUpperCase()}
                             </p>
                           )}
                           {(comparePlayer.height || comparePlayer.weight || comparePlayer.year) && (
-                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
+                            <p className="text-sm ml-7 mt-2 leading-normal" style={{ opacity: 0.7, color: textColor, lineHeight: '1.6' }}>
                               {comparePlayer.height && `${comparePlayer.height}"`}
                               {comparePlayer.height && comparePlayer.weight && ' • '}
                               {comparePlayer.weight && `${comparePlayer.weight} lbs`}
@@ -1253,15 +1253,15 @@ function MultiPositionRadarCharts() {
                     </div>
                   ) : (
                     <div>
-                      <h2 className="text-7xl font-bold mb-2" style={{ color: secondaryColor }}>{currentPlayer.player}</h2>
-                      <p className="text-2xl font-medium" style={{ opacity: 0.9, color: textColor }}>{normalizeTeamName(currentPlayer.team_name)}</p>
+                      <h2 className="text-7xl font-bold mb-3 leading-tight" style={{ color: secondaryColor, lineHeight: '1.1' }}>{currentPlayer.player}</h2>
+                      <p className="text-2xl font-medium leading-relaxed" style={{ opacity: 0.9, color: textColor, lineHeight: '1.5' }}>{normalizeTeamName(currentPlayer.team_name)}</p>
                       {(currentPlayer.position || currentPlayer.pos) && (
-                        <p className="text-lg mt-1" style={{ opacity: 0.85, color: textColor, fontWeight: 600 }}>
+                        <p className="text-lg mt-2 leading-normal" style={{ opacity: 0.85, color: textColor, fontWeight: 600, lineHeight: '1.6' }}>
                           {(currentPlayer.position || currentPlayer.pos).toUpperCase()}
                         </p>
                       )}
                       {(currentPlayer.height || currentPlayer.weight || currentPlayer.year) && (
-                        <p className="text-base mt-1" style={{ opacity: 0.75, color: textColor }}>
+                        <p className="text-base mt-2 leading-normal" style={{ opacity: 0.75, color: textColor, lineHeight: '1.6' }}>
                           {currentPlayer.height && `${currentPlayer.height}"`}
                           {currentPlayer.height && currentPlayer.weight && ' • '}
                           {currentPlayer.weight && `${currentPlayer.weight} lbs`}
