@@ -1198,6 +1198,11 @@ function MultiPositionRadarCharts() {
                             <h3 className="text-3xl font-bold" style={{ color: primaryColor }}>{currentPlayer.player}</h3>
                           </div>
                           <p className="text-lg ml-7" style={{ opacity: 0.85, color: textColor, fontWeight: 500 }}>{normalizeTeamName(currentPlayer.team_name)}</p>
+                          {(currentPlayer.position || currentPlayer.pos) && (
+                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.8, color: textColor, fontWeight: 600 }}>
+                              {(currentPlayer.position || currentPlayer.pos).toUpperCase()}
+                            </p>
+                          )}
                           {(currentPlayer.height || currentPlayer.weight) && (
                             <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
                               {currentPlayer.height && `${currentPlayer.height}"`}
@@ -1218,6 +1223,11 @@ function MultiPositionRadarCharts() {
                             <h3 className="text-3xl font-bold" style={{ color: player2Color }}>{comparePlayer.player}</h3>
                           </div>
                           <p className="text-lg ml-7" style={{ opacity: 0.85, color: textColor, fontWeight: 500 }}>{normalizeTeamName(comparePlayer.team_name)}</p>
+                          {(comparePlayer.position || comparePlayer.pos) && (
+                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.8, color: textColor, fontWeight: 600 }}>
+                              {(comparePlayer.position || comparePlayer.pos).toUpperCase()}
+                            </p>
+                          )}
                           {(comparePlayer.height || comparePlayer.weight) && (
                             <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
                               {comparePlayer.height && `${comparePlayer.height}"`}
@@ -1237,6 +1247,11 @@ function MultiPositionRadarCharts() {
                     <div>
                       <h2 className="text-7xl font-bold mb-3" style={{ color: secondaryColor }}>{currentPlayer.player}</h2>
                       <p className="text-2xl font-medium" style={{ opacity: 0.9, color: textColor }}>{normalizeTeamName(currentPlayer.team_name)}</p>
+                      {(currentPlayer.position || currentPlayer.pos) && (
+                        <p className="text-lg mt-2" style={{ opacity: 0.85, color: textColor, fontWeight: 600 }}>
+                          {(currentPlayer.position || currentPlayer.pos).toUpperCase()}
+                        </p>
+                      )}
                       {(currentPlayer.height || currentPlayer.weight) && (
                         <p className="text-base mt-2" style={{ opacity: 0.75, color: textColor }}>
                           {currentPlayer.height && `${currentPlayer.height}"`}
