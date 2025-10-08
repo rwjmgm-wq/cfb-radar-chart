@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
-const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, invertedStats = [], width = 600, height = 600, statDescriptions = {} }) => {
+const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, invertedStats = [], width = 800, height = 800, statDescriptions = {} }) => {
   const [hoveredStat, setHoveredStat] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const centerX = width / 2;
   const centerY = height / 2;
-  const maxRadius = 220;
+  const maxRadius = 280;
   const numLevels = 10;
 
   const numAxes = data.length;
@@ -63,7 +63,7 @@ const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, in
   const renderAxisLabels = () => {
     return data.map((stat, i) => {
       const angle = angleStep * i;
-      const labelDistance = maxRadius + 70;
+      const labelDistance = maxRadius + 85;
       const labelPoint = polarToCartesian(angle, labelDistance);
 
       const percentiles = [20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -78,8 +78,8 @@ const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, in
             y={labelPoint.y}
             textAnchor="middle"
             fill={comparisonMode ? "#000000" : "#FFFFFF"}
-            fontSize="11"
-            fontWeight="600"
+            fontSize="15"
+            fontWeight="700"
             fontFamily="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
             style={{ cursor: statDescriptions[statKey] ? 'help' : 'default' }}
             onMouseEnter={(e) => {
@@ -111,9 +111,9 @@ const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, in
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fill={comparisonMode ? "#333333" : "#FFFFFF"}
-                fontSize="10"
-                fontWeight="600"
-                opacity="0.9"
+                fontSize="13"
+                fontWeight="700"
+                opacity="0.95"
                 fontFamily="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
                 transform={`rotate(${rotationAngle}, ${point.x}, ${point.y})`}
               >
@@ -145,7 +145,7 @@ const CustomRadarChart = ({ data, player1Color, player2Color, comparisonMode, in
           fill={color}
           fillOpacity={comparisonMode ? "0.3" : "0.5"}
           stroke={color}
-          strokeWidth="3"
+          strokeWidth="4"
         />
         {points.map((point, i) => (
           <circle

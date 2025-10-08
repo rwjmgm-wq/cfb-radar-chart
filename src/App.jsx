@@ -1190,43 +1190,43 @@ function MultiPositionRadarCharts() {
                   </div>
                   {comparisonMode && comparePlayer ? (
                     <div>
-                      <h2 className="text-4xl font-bold mb-4" style={{ color: textColor }}>Player Comparison</h2>
-                      <div className="flex justify-center gap-8 mb-4">
+                      <h2 className="text-5xl font-bold mb-6" style={{ color: textColor }}>Player Comparison</h2>
+                      <div className="flex justify-center gap-12 mb-6">
                         <div className="text-left">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: primaryColor }}></div>
-                            <h3 className="text-2xl font-bold" style={{ color: primaryColor }}>{currentPlayer.player}</h3>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: primaryColor }}></div>
+                            <h3 className="text-3xl font-bold" style={{ color: primaryColor }}>{currentPlayer.player}</h3>
                           </div>
-                          <p className="text-sm ml-5" style={{ opacity: 0.8, color: textColor }}>{normalizeTeamName(currentPlayer.team_name)}</p>
+                          <p className="text-lg ml-7" style={{ opacity: 0.85, color: textColor, fontWeight: 500 }}>{normalizeTeamName(currentPlayer.team_name)}</p>
                           {(currentPlayer.height || currentPlayer.weight) && (
-                            <p className="text-xs ml-5 mt-1" style={{ opacity: 0.6, color: textColor }}>
+                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
                               {currentPlayer.height && `${currentPlayer.height}"`}
                               {currentPlayer.height && currentPlayer.weight && ' • '}
                               {currentPlayer.weight && `${currentPlayer.weight} lbs`}
                             </p>
                           )}
                           {currentPlayer.year && (
-                            <p className="text-xs ml-5 mt-0.5" style={{ opacity: 0.6, color: textColor }}>
+                            <p className="text-sm ml-7 mt-0.5" style={{ opacity: 0.7, color: textColor }}>
                               {currentPlayer.year}
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center text-2xl opacity-50" style={{ color: textColor }}>vs</div>
+                        <div className="flex items-center text-3xl opacity-50 font-bold" style={{ color: textColor }}>vs</div>
                         <div className="text-left">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: player2Color }}></div>
-                            <h3 className="text-2xl font-bold" style={{ color: player2Color }}>{comparePlayer.player}</h3>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: player2Color }}></div>
+                            <h3 className="text-3xl font-bold" style={{ color: player2Color }}>{comparePlayer.player}</h3>
                           </div>
-                          <p className="text-sm ml-5" style={{ opacity: 0.8, color: textColor }}>{normalizeTeamName(comparePlayer.team_name)}</p>
+                          <p className="text-lg ml-7" style={{ opacity: 0.85, color: textColor, fontWeight: 500 }}>{normalizeTeamName(comparePlayer.team_name)}</p>
                           {(comparePlayer.height || comparePlayer.weight) && (
-                            <p className="text-xs ml-5 mt-1" style={{ opacity: 0.6, color: textColor }}>
+                            <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
                               {comparePlayer.height && `${comparePlayer.height}"`}
                               {comparePlayer.height && comparePlayer.weight && ' • '}
                               {comparePlayer.weight && `${comparePlayer.weight} lbs`}
                             </p>
                           )}
                           {comparePlayer.year && (
-                            <p className="text-xs ml-5 mt-0.5" style={{ opacity: 0.6, color: textColor }}>
+                            <p className="text-sm ml-7 mt-0.5" style={{ opacity: 0.7, color: textColor }}>
                               {comparePlayer.year}
                             </p>
                           )}
@@ -1235,17 +1235,17 @@ function MultiPositionRadarCharts() {
                     </div>
                   ) : (
                     <div>
-                      <h2 className="text-5xl font-bold mb-2" style={{ color: secondaryColor }}>{currentPlayer.player}</h2>
-                      <p className="text-xl" style={{ opacity: 0.9, color: textColor }}>{normalizeTeamName(currentPlayer.team_name)}</p>
+                      <h2 className="text-7xl font-bold mb-3" style={{ color: secondaryColor }}>{currentPlayer.player}</h2>
+                      <p className="text-2xl font-medium" style={{ opacity: 0.9, color: textColor }}>{normalizeTeamName(currentPlayer.team_name)}</p>
                       {(currentPlayer.height || currentPlayer.weight) && (
-                        <p className="text-sm mt-2" style={{ opacity: 0.7, color: textColor }}>
+                        <p className="text-base mt-2" style={{ opacity: 0.75, color: textColor }}>
                           {currentPlayer.height && `${currentPlayer.height}"`}
                           {currentPlayer.height && currentPlayer.weight && ' • '}
                           {currentPlayer.weight && `${currentPlayer.weight} lbs`}
                         </p>
                       )}
                       {currentPlayer.year && (
-                        <p className="text-sm mt-1" style={{ opacity: 0.7, color: textColor }}>
+                        <p className="text-base mt-1" style={{ opacity: 0.75, color: textColor }}>
                           {currentPlayer.year}
                         </p>
                       )}
