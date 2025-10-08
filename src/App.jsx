@@ -1298,6 +1298,59 @@ function MultiPositionRadarCharts() {
                     />
                   </ErrorBoundary>
                 </div>
+
+                {/* Stats Comparison Table */}
+                {comparisonMode && comparePlayer && (
+                  <div className="px-8 pb-8" style={{ backgroundColor: comparisonMode ? bgColor : `${primaryColor}dd` }}>
+                    <div className={`${colors.cardBg} backdrop-blur-sm rounded-xl overflow-hidden border ${colors.border} shadow-lg`}>
+                      <div className={`${colors.bgTertiary} px-4 py-3 border-b ${colors.border}`}>
+                        <h3 className={`text-sm font-bold ${colors.text} uppercase tracking-wide`}>Statistical Comparison</h3>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className={`${colors.bgSecondary} border-b ${colors.border}`}>
+                            <tr>
+                              <th className={`px-4 py-3 text-left text-xs font-semibold ${colors.textMuted} uppercase tracking-wider`}>Stat</th>
+                              <th className={`px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider`} style={{ color: primaryColor }}>{currentPlayer.player.split(' ')[0]}</th>
+                              <th className={`px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider`} style={{ color: player2Color }}>{comparePlayer.player.split(' ')[0]}</th>
+                              <th className={`px-4 py-3 text-center text-xs font-semibold ${colors.textMuted} uppercase tracking-wider`}>Difference</th>
+                            </tr>
+                          </thead>
+                          <tbody className={`${colors.bgSecondary} divide-y ${colors.border}`}>
+                            {radarData.map((stat, idx) => {
+                              const value1 = stat.value1;
+                              const value2 = stat.value2;
+                              const diff = value1 - value2;
+                              const isInverted = currentPositionConfig.invertedStats?.includes(stat.statKey);
+                              const player1Better = isInverted ? diff < 0 : diff > 0;
+
+                              return (
+                                <tr key={idx} className={`${colors.hover} transition-colors`}>
+                                  <td className={`px-4 py-3 text-sm font-medium ${colors.text}`}>{stat.stat}</td>
+                                  <td className={`px-4 py-3 text-right text-sm font-semibold`} style={{
+                                    color: primaryColor,
+                                    fontWeight: player1Better ? 700 : 400
+                                  }}>
+                                    {value1.toFixed(1)}
+                                  </td>
+                                  <td className={`px-4 py-3 text-right text-sm font-semibold`} style={{
+                                    color: player2Color,
+                                    fontWeight: !player1Better ? 700 : 400
+                                  }}>
+                                    {value2.toFixed(1)}
+                                  </td>
+                                  <td className={`px-4 py-3 text-center text-sm ${colors.textMuted}`}>
+                                    {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Credits */}
                 <div className="px-6 py-4 text-center border-t" style={{
