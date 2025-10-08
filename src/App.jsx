@@ -80,7 +80,7 @@ function MultiPositionRadarCharts() {
     const loadPlayerMetadata = async () => {
       setIsLoadingMetadata(true);
       try {
-        const response = await fetch('/cfb_players_2025.csv');
+        const response = await fetch(`${import.meta.env.BASE_URL}cfb_players_2025.csv`);
         const text = await response.text();
         const lines = text.split('\n').filter(line => line.trim());
 
