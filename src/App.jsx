@@ -298,7 +298,7 @@ function MultiPositionRadarCharts() {
         });
       });
 
-      // Merge with auto-loaded player metadata (height, weight, year)
+      // Merge with auto-loaded player metadata (height, weight, year, position)
       Object.keys(mergedData).forEach(playerName => {
         if (playerMetadata[playerName]) {
           if (!mergedData[playerName].height && playerMetadata[playerName].height) {
@@ -309,6 +309,9 @@ function MultiPositionRadarCharts() {
           }
           if (!mergedData[playerName].year && playerMetadata[playerName].year) {
             mergedData[playerName].year = playerMetadata[playerName].year;
+          }
+          if (!mergedData[playerName].position && !mergedData[playerName].pos && playerMetadata[playerName].position) {
+            mergedData[playerName].position = playerMetadata[playerName].position;
           }
         }
       });
@@ -1203,15 +1206,12 @@ function MultiPositionRadarCharts() {
                               {(currentPlayer.position || currentPlayer.pos).toUpperCase()}
                             </p>
                           )}
-                          {(currentPlayer.height || currentPlayer.weight) && (
+                          {(currentPlayer.height || currentPlayer.weight || currentPlayer.year) && (
                             <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
                               {currentPlayer.height && `${currentPlayer.height}"`}
                               {currentPlayer.height && currentPlayer.weight && ' • '}
                               {currentPlayer.weight && `${currentPlayer.weight} lbs`}
-                            </p>
-                          )}
-                          {currentPlayer.year && (
-                            <p className="text-sm ml-7 mt-0.5" style={{ opacity: 0.7, color: textColor }}>
+                              {(currentPlayer.height || currentPlayer.weight) && currentPlayer.year && ' • '}
                               {currentPlayer.year}
                             </p>
                           )}
@@ -1228,15 +1228,12 @@ function MultiPositionRadarCharts() {
                               {(comparePlayer.position || comparePlayer.pos).toUpperCase()}
                             </p>
                           )}
-                          {(comparePlayer.height || comparePlayer.weight) && (
+                          {(comparePlayer.height || comparePlayer.weight || comparePlayer.year) && (
                             <p className="text-sm ml-7 mt-1" style={{ opacity: 0.7, color: textColor }}>
                               {comparePlayer.height && `${comparePlayer.height}"`}
                               {comparePlayer.height && comparePlayer.weight && ' • '}
                               {comparePlayer.weight && `${comparePlayer.weight} lbs`}
-                            </p>
-                          )}
-                          {comparePlayer.year && (
-                            <p className="text-sm ml-7 mt-0.5" style={{ opacity: 0.7, color: textColor }}>
+                              {(comparePlayer.height || comparePlayer.weight) && comparePlayer.year && ' • '}
                               {comparePlayer.year}
                             </p>
                           )}
@@ -1245,22 +1242,19 @@ function MultiPositionRadarCharts() {
                     </div>
                   ) : (
                     <div>
-                      <h2 className="text-7xl font-bold mb-3" style={{ color: secondaryColor }}>{currentPlayer.player}</h2>
+                      <h2 className="text-7xl font-bold mb-2" style={{ color: secondaryColor }}>{currentPlayer.player}</h2>
                       <p className="text-2xl font-medium" style={{ opacity: 0.9, color: textColor }}>{normalizeTeamName(currentPlayer.team_name)}</p>
                       {(currentPlayer.position || currentPlayer.pos) && (
-                        <p className="text-lg mt-2" style={{ opacity: 0.85, color: textColor, fontWeight: 600 }}>
+                        <p className="text-lg mt-1" style={{ opacity: 0.85, color: textColor, fontWeight: 600 }}>
                           {(currentPlayer.position || currentPlayer.pos).toUpperCase()}
                         </p>
                       )}
-                      {(currentPlayer.height || currentPlayer.weight) && (
-                        <p className="text-base mt-2" style={{ opacity: 0.75, color: textColor }}>
+                      {(currentPlayer.height || currentPlayer.weight || currentPlayer.year) && (
+                        <p className="text-base mt-1" style={{ opacity: 0.75, color: textColor }}>
                           {currentPlayer.height && `${currentPlayer.height}"`}
                           {currentPlayer.height && currentPlayer.weight && ' • '}
                           {currentPlayer.weight && `${currentPlayer.weight} lbs`}
-                        </p>
-                      )}
-                      {currentPlayer.year && (
-                        <p className="text-base mt-1" style={{ opacity: 0.75, color: textColor }}>
+                          {(currentPlayer.height || currentPlayer.weight) && currentPlayer.year && ' • '}
                           {currentPlayer.year}
                         </p>
                       )}
