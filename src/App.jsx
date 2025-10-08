@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Download, X, Loader2 } from 'lucide-react';
+import { Upload, Download, X, Loader2, Copy, Check, Star, Users, Trophy } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import SearchableSelect from './components/SearchableSelect';
 import CustomRadarChart from './components/CustomRadarChart';
@@ -26,6 +26,12 @@ function MultiPositionRadarCharts() {
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedConference, setSelectedConference] = useState('');
   const [theme, setTheme] = useState('dark');
+  const [copied, setCopied] = useState(false);
+  const [favorites, setFavorites] = useState([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showSimilarPlayers, setShowSimilarPlayers] = useState(false);
+  const [similarPlayers, setSimilarPlayers] = useState([]);
+  const [showTop10Modal, setShowTop10Modal] = useState(false);
 
   const currentPositionConfig = POSITION_CONFIGS[selectedPosition];
   const currentData = globalData;
@@ -74,6 +80,23 @@ function MultiPositionRadarCharts() {
   useEffect(() => {
     localStorage.setItem('cfb_radar_theme', theme);
   }, [theme]);
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('cfb_radar_favorites');
+    if (savedFavorites) {
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (e) {
+        console.error('Failed to load favorites:', e);
+      }
+    }
+  }, []);
+
+  // Save favorites to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('cfb_radar_favorites', JSON.stringify(favorites));
+  }, [favorites]);
 
   // Auto-load player metadata on mount
   useEffect(() => {
@@ -179,6 +202,7 @@ function MultiPositionRadarCharts() {
     setSelectedConference('');
     setMinUsage(currentPositionConfig.minUsage);
     setShowTopTenPercent(false);
+    setShowFavoritesOnly(false);
     setCurrentIndex(0);
     setCompareIndex(1);
   };
@@ -443,6 +467,69 @@ function MultiPositionRadarCharts() {
     return totalWeight > 0 ? (weightedSum / totalWeight) * 100 : null;
   };
 
+  const findSimilarPlayers = (targetPlayer, allPlayers, positionConfig, topN = 5) => {
+    if (!targetPlayer || !allPlayers || allPlayers.length === 0) return [];
+
+    const stats = positionConfig.stats;
+
+    // Calculate ranges for normalization
+    const ranges = {};
+    stats.forEach(stat => {
+      const values = allPlayers.map(p => p[stat]).filter(v => v != null && !isNaN(v));
+      if (values.length > 0) {
+        ranges[stat] = {
+          min: Math.min(...values),
+          max: Math.max(...values)
+        };
+      }
+    });
+
+    // Calculate similarity score for each player
+    const similarities = allPlayers
+      .filter(p => p.player !== targetPlayer.player) // Exclude the target player
+      .map(player => {
+        let totalDistance = 0;
+        let validStats = 0;
+
+        stats.forEach(stat => {
+          const targetValue = targetPlayer[stat];
+          const playerValue = player[stat];
+
+          if (targetValue != null && !isNaN(targetValue) &&
+              playerValue != null && !isNaN(playerValue) &&
+              ranges[stat]) {
+            const range = ranges[stat].max - ranges[stat].min;
+
+            if (range > 0) {
+              // Normalize both values to 0-1 scale
+              const normalizedTarget = (targetValue - ranges[stat].min) / range;
+              const normalizedPlayer = (playerValue - ranges[stat].min) / range;
+
+              // Calculate squared difference (Euclidean distance component)
+              const diff = normalizedTarget - normalizedPlayer;
+              totalDistance += diff * diff;
+              validStats++;
+            }
+          }
+        });
+
+        // Calculate similarity score (inverse of distance, 0-100 scale)
+        const euclideanDistance = validStats > 0 ? Math.sqrt(totalDistance / validStats) : 1;
+        const similarityScore = Math.max(0, (1 - euclideanDistance) * 100);
+
+        return {
+          player,
+          similarityScore,
+          validStats
+        };
+      })
+      .filter(s => s.validStats >= Math.floor(stats.length * 0.5)) // At least 50% of stats must be valid
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, topN);
+
+    return similarities;
+  };
+
   let qualifiedPlayers = currentData
     ? currentData
         .filter(p => {
@@ -471,6 +558,11 @@ function MultiPositionRadarCharts() {
           // Conference filter
           if (selectedConference && p.conference) {
             if (p.conference.toUpperCase() !== selectedConference.toUpperCase()) return false;
+          }
+
+          // Favorites filter
+          if (showFavoritesOnly && !favorites.includes(p.player)) {
+            return false;
           }
 
           return true;
@@ -762,6 +854,107 @@ function MultiPositionRadarCharts() {
         downloadButton.style.display = 'flex';
       }
     }
+  };
+
+  const copyChartToClipboard = async () => {
+    const chartContainer = document.getElementById('radar-chart-container');
+    if (!chartContainer) {
+      alert('Chart container not found');
+      return;
+    }
+
+    // Hide download button before capturing
+    const downloadButton = chartContainer.querySelector('.download-button-hide');
+    if (downloadButton) {
+      downloadButton.style.display = 'none';
+    }
+
+    try {
+      // Use html2canvas to capture the chart
+      const canvas = await html2canvas(chartContainer, {
+        backgroundColor: '#0f172a',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+
+      // Convert canvas to blob
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'image/png': blob
+              })
+            ]);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (err) {
+            console.error('Failed to copy to clipboard:', err);
+            alert('Failed to copy to clipboard. Your browser may not support this feature.');
+          }
+        } else {
+          alert('Failed to generate image.');
+        }
+      }, 'image/png');
+    } catch (error) {
+      console.error('Error generating image:', error);
+      alert('Failed to copy to clipboard: ' + error.message);
+    } finally {
+      // Show download button again
+      if (downloadButton) {
+        downloadButton.style.display = 'flex';
+      }
+    }
+  };
+
+  const toggleFavorite = (playerName) => {
+    setFavorites(prev => {
+      if (prev.includes(playerName)) {
+        return prev.filter(name => name !== playerName);
+      } else {
+        return [...prev, playerName];
+      }
+    });
+  };
+
+  const handleFindSimilarPlayers = () => {
+    if (!currentPlayer || !allQualifiedPlayers || allQualifiedPlayers.length === 0) {
+      alert('No players available for comparison');
+      return;
+    }
+
+    const similar = findSimilarPlayers(currentPlayer, allQualifiedPlayers, currentPositionConfig, 10);
+    setSimilarPlayers(similar);
+    setShowSimilarPlayers(true);
+  };
+
+  const getTop10Players = () => {
+    if (!allQualifiedPlayers || allQualifiedPlayers.length === 0) {
+      return [];
+    }
+
+    if (!currentPositionConfig.compositeScoreConfig) {
+      // If no composite score, just return top 10 by first stat
+      return allQualifiedPlayers.slice(0, 10).map((player, idx) => ({
+        player,
+        rank: idx + 1,
+        compositeScore: null
+      }));
+    }
+
+    const playersWithScores = allQualifiedPlayers.map(player => ({
+      player,
+      compositeScore: calculateNormalizedCompositeScore(player, allQualifiedPlayers, currentPositionConfig)
+    })).filter(p => p.compositeScore !== null);
+
+    playersWithScores.sort((a, b) => b.compositeScore - a.compositeScore);
+
+    return playersWithScores.slice(0, 10).map((p, idx) => ({
+      ...p,
+      rank: idx + 1
+    }));
   };
 
 
@@ -1058,6 +1251,20 @@ function MultiPositionRadarCharts() {
                       <span className={`${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Top 10% Only</span>
                     </label>
                   )}
+
+                  <label className="flex items-center gap-2 cursor-pointer text-sm group">
+                    <input
+                      type="checkbox"
+                      checked={showFavoritesOnly}
+                      onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className={`${colors.textSecondary} group-hover:${colors.text} transition-colors flex items-center gap-1`}>
+                      <Star size={14} fill={showFavoritesOnly ? "#fbbf24" : "none"} stroke={showFavoritesOnly ? "#fbbf24" : "currentColor"} />
+                      Favorites Only {favorites.length > 0 && `(${favorites.length})`}
+                    </span>
+                  </label>
+
                   <span className={`text-sm ${colors.textMuted} ${theme === 'dark' ? 'bg-slate-700/30' : 'bg-gray-200'} px-3 py-2 rounded-lg`}>
                     {showTopTenPercent
                       ? `${qualifiedPlayers.length} of ${allQualifiedPlayers.length} players (top 10%)`
@@ -1066,7 +1273,7 @@ function MultiPositionRadarCharts() {
                   </span>
                   
                   {/* Clear Filters Button */}
-                  {(selectedTeam || selectedConference || minUsage !== currentPositionConfig.minUsage || showTopTenPercent) && (
+                  {(selectedTeam || selectedConference || minUsage !== currentPositionConfig.minUsage || showTopTenPercent || showFavoritesOnly) && (
                     <button
                       onClick={clearFilters}
                       className="text-sm px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 rounded-lg transition-colors"
@@ -1191,16 +1398,51 @@ function MultiPositionRadarCharts() {
                       : `linear-gradient(to bottom, ${secondaryColor}30, transparent)`
                   }}
                 >
-                  <div className="absolute top-4 right-4 flex gap-2 download-button-hide">
-                    <button
-                      onClick={downloadChartAsPNG}
-                      className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
-                      style={{ color: textColor }}
-                      title="Download as PNG"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span className="text-sm font-medium">Download PNG</span>
-                    </button>
+                  <div className="absolute top-4 right-4 flex flex-col gap-2">
+                    <div className="flex gap-2 download-button-hide">
+                      <button
+                        onClick={copyChartToClipboard}
+                        className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
+                        style={{ color: textColor }}
+                        title="Copy to clipboard"
+                      >
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        <span className="text-sm font-medium">{copied ? 'Copied!' : 'Copy'}</span>
+                      </button>
+                      <button
+                        onClick={downloadChartAsPNG}
+                        className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
+                        style={{ color: textColor }}
+                        title="Download as PNG"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="text-sm font-medium">Download PNG</span>
+                      </button>
+                    </div>
+                    {!comparisonMode && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleFindSimilarPlayers}
+                          className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
+                          style={{ color: textColor }}
+                          title="Find similar players"
+                        >
+                          <Users className="w-4 h-4" />
+                          <span className="text-sm font-medium">Find Similar</span>
+                        </button>
+                        {currentPositionConfig.compositeScoreConfig && (
+                          <button
+                            onClick={() => setShowTop10Modal(true)}
+                            className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
+                            style={{ color: textColor }}
+                            title="View top 10 players"
+                          >
+                            <Trophy className="w-4 h-4" />
+                            <span className="text-sm font-medium">Top 10</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {comparisonMode && comparePlayer ? (
                     <div>
@@ -1253,7 +1495,21 @@ function MultiPositionRadarCharts() {
                     </div>
                   ) : (
                     <div>
-                      <h2 className="text-7xl font-bold mb-3 leading-tight" style={{ color: secondaryColor, lineHeight: '1.1' }}>{currentPlayer.player}</h2>
+                      <div className="flex items-center justify-center gap-4 mb-3">
+                        <h2 className="text-7xl font-bold leading-tight" style={{ color: secondaryColor, lineHeight: '1.1' }}>{currentPlayer.player}</h2>
+                        <button
+                          onClick={() => toggleFavorite(currentPlayer.player)}
+                          className="transition-all hover:scale-110 active:scale-95"
+                          title={favorites.includes(currentPlayer.player) ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <Star
+                            size={48}
+                            fill={favorites.includes(currentPlayer.player) ? "#fbbf24" : "none"}
+                            stroke={favorites.includes(currentPlayer.player) ? "#fbbf24" : textColor}
+                            strokeWidth={2}
+                          />
+                        </button>
+                      </div>
                       <p className="text-2xl font-medium leading-relaxed" style={{ opacity: 0.9, color: textColor, lineHeight: '1.5' }}>{normalizeTeamName(currentPlayer.team_name)}</p>
                       {(currentPlayer.position || currentPlayer.pos) && (
                         <p className="text-lg mt-2 leading-normal" style={{ opacity: 0.85, color: textColor, fontWeight: 600, lineHeight: '1.6' }}>
@@ -1370,6 +1626,298 @@ function MultiPositionRadarCharts() {
           isOpen={showKeyboardTooltip}
           onClose={() => setShowKeyboardTooltip(false)}
         />
+      )}
+
+      {/* Similar Players Modal */}
+      {showSimilarPlayers && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowSimilarPlayers(false)}
+        >
+          <div
+            className={`${colors.bgSecondary} rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto border ${colors.border}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className={`${colors.bgTertiary} px-6 py-4 border-b ${colors.border} sticky top-0 z-10 flex justify-between items-center`}>
+              <div>
+                <h2 className={`text-2xl font-bold ${colors.text}`}>Similar Players</h2>
+                <p className={`text-sm ${colors.textMuted} mt-1`}>Players most similar to {currentPlayer?.player}</p>
+              </div>
+              <button
+                onClick={() => setShowSimilarPlayers(false)}
+                className={`${colors.hover} rounded-lg p-2 transition-colors`}
+                title="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {similarPlayers.length === 0 ? (
+                <div className={`text-center py-12 ${colors.textMuted}`}>
+                  <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>No similar players found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {similarPlayers.map((similar, idx) => {
+                    const player = similar.player;
+                    const teamColors = getTeamColors(player.team_name);
+                    const isFavorite = favorites.includes(player.player);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`${colors.cardBg} backdrop-blur-sm rounded-xl p-5 border ${colors.border} ${colors.hover} transition-all cursor-pointer`}
+                        onClick={() => {
+                          const playerIndex = qualifiedPlayers.findIndex(p => p.player === player.player);
+                          if (playerIndex !== -1) {
+                            setCurrentIndex(playerIndex);
+                            setShowSimilarPlayers(false);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className={`text-lg font-bold ${colors.textMuted}`}>#{idx + 1}</span>
+                              <h3 className={`text-xl font-bold ${colors.text}`}>{player.player}</h3>
+                              {isFavorite && (
+                                <Star size={18} fill="#fbbf24" stroke="#fbbf24" />
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-sm">
+                              <span
+                                className="font-semibold px-3 py-1 rounded-lg"
+                                style={{
+                                  backgroundColor: `${teamColors.primary}30`,
+                                  color: teamColors.secondary
+                                }}
+                              >
+                                {normalizeTeamName(player.team_name)}
+                              </span>
+                              {(player.position || player.pos) && (
+                                <span className={`${colors.textSecondary} font-medium`}>
+                                  {(player.position || player.pos).toUpperCase()}
+                                </span>
+                              )}
+                              {player.height && (
+                                <span className={`${colors.textMuted}`}>{player.height}"</span>
+                              )}
+                              {player.weight && (
+                                <span className={`${colors.textMuted}`}>{player.weight} lbs</span>
+                              )}
+                              {player.year && (
+                                <span className={`${colors.textMuted}`}>{player.year}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-3xl font-bold" style={{ color: teamColors.primary }}>
+                              {similar.similarityScore.toFixed(0)}%
+                            </div>
+                            <div className={`text-xs ${colors.textMuted}`}>similarity</div>
+                          </div>
+                        </div>
+
+                        {/* Similarity Bar */}
+                        <div className={`mt-4 h-2 ${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'} rounded-full overflow-hidden`}>
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${similar.similarityScore}%`,
+                              backgroundColor: teamColors.primary
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className={`mt-6 pt-4 border-t ${colors.border}`}>
+                <p className={`text-xs ${colors.textMuted} text-center`}>
+                  Similarity calculated using Euclidean distance across all {currentPositionConfig.stats.length} stats
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top 10 Players Modal */}
+      {showTop10Modal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowTop10Modal(false)}
+        >
+          <div
+            className={`${colors.bgSecondary} rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto border ${colors.border}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className={`${colors.bgTertiary} px-6 py-4 border-b ${colors.border} sticky top-0 z-10 flex justify-between items-center`}>
+              <div>
+                <h2 className={`text-2xl font-bold ${colors.text}`}>Top 10 {selectedPosition} Players</h2>
+                <p className={`text-sm ${colors.textMuted} mt-1`}>
+                  {currentPositionConfig.compositeScoreConfig
+                    ? 'Ranked by composite performance score'
+                    : 'Top performers at this position'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowTop10Modal(false)}
+                className={`${colors.hover} rounded-lg p-2 transition-colors`}
+                title="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {(() => {
+                const top10 = getTop10Players();
+
+                if (top10.length === 0) {
+                  return (
+                    <div className={`text-center py-12 ${colors.textMuted}`}>
+                      <Trophy className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <p>No players available</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {top10.map((item) => {
+                      const player = item.player;
+                      const teamColors = getTeamColors(player.team_name);
+                      const isFavorite = favorites.includes(player.player);
+                      const isCurrentPlayer = currentPlayer?.player === player.player;
+
+                      return (
+                        <div
+                          key={item.rank}
+                          className={`${colors.cardBg} backdrop-blur-sm rounded-xl p-5 border ${isCurrentPlayer ? 'border-yellow-500 border-2' : colors.border} ${colors.hover} transition-all cursor-pointer relative`}
+                          onClick={() => {
+                            const playerIndex = qualifiedPlayers.findIndex(p => p.player === player.player);
+                            if (playerIndex !== -1) {
+                              setCurrentIndex(playerIndex);
+                              setShowTop10Modal(false);
+                            }
+                          }}
+                        >
+                          {/* Rank Badge */}
+                          <div
+                            className="absolute -top-3 -left-3 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shadow-lg"
+                            style={{
+                              backgroundColor: item.rank === 1 ? '#FFD700' : item.rank === 2 ? '#C0C0C0' : item.rank === 3 ? '#CD7F32' : teamColors.primary,
+                              color: item.rank <= 3 ? '#000' : '#FFF'
+                            }}
+                          >
+                            {item.rank}
+                          </div>
+
+                          <div className="flex items-start justify-between gap-4 ml-6">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className={`text-xl font-bold ${colors.text}`}>{player.player}</h3>
+                                {isFavorite && (
+                                  <Star size={18} fill="#fbbf24" stroke="#fbbf24" />
+                                )}
+                                {isCurrentPlayer && (
+                                  <span className="text-xs px-2 py-1 bg-yellow-500 text-black rounded-full font-semibold">
+                                    VIEWING
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 text-sm">
+                                <span
+                                  className="font-semibold px-3 py-1 rounded-lg"
+                                  style={{
+                                    backgroundColor: `${teamColors.primary}30`,
+                                    color: teamColors.secondary
+                                  }}
+                                >
+                                  {normalizeTeamName(player.team_name)}
+                                </span>
+                                {(player.position || player.pos) && (
+                                  <span className={`${colors.textSecondary} font-medium`}>
+                                    {(player.position || player.pos).toUpperCase()}
+                                  </span>
+                                )}
+                                {player.height && (
+                                  <span className={`${colors.textMuted}`}>{player.height}"</span>
+                                )}
+                                {player.weight && (
+                                  <span className={`${colors.textMuted}`}>{player.weight} lbs</span>
+                                )}
+                                {player.year && (
+                                  <span className={`${colors.textMuted}`}>{player.year}</span>
+                                )}
+                              </div>
+
+                              {/* Key Stats Preview */}
+                              {currentPositionConfig.compositeScoreConfig && (
+                                <div className="mt-3 flex flex-wrap gap-3">
+                                  {currentPositionConfig.compositeScoreConfig.stats.slice(0, 3).map(({ stat }) => {
+                                    const value = player[stat];
+                                    if (value == null) return null;
+                                    return (
+                                      <div key={stat} className={`text-xs ${colors.textMuted}`}>
+                                        <span className="font-semibold">{stat}:</span> {value.toFixed(1)}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            {item.compositeScore != null && (
+                              <div className="text-right">
+                                <div className="text-3xl font-bold" style={{ color: teamColors.primary }}>
+                                  {item.compositeScore.toFixed(1)}
+                                </div>
+                                <div className={`text-xs ${colors.textMuted}`}>score</div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Score Bar */}
+                          {item.compositeScore != null && (
+                            <div className={`mt-4 h-2 ${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'} rounded-full overflow-hidden`}>
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${item.compositeScore}%`,
+                                  backgroundColor: teamColors.primary
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Footer */}
+              {currentPositionConfig.compositeScoreConfig && (
+                <div className={`mt-6 pt-4 border-t ${colors.border}`}>
+                  <p className={`text-xs ${colors.textMuted} text-center`}>
+                    Composite score based on weighted combination of {currentPositionConfig.compositeScoreConfig.stats.length} key stats
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
