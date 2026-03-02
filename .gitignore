@@ -28,3 +28,15 @@ yarn-error.log*
 
 # Vite
 .vite/
+
+# Data files (managed outside git)
+*.csv
+*.txt
+
+# Python scripts (not part of the web app)
+*.py
+
+# Orphaned/legacy root-level app files
+Radar_chart_app.jsx
+Radar_chart_app_complete.jsx
+radar_app.js
