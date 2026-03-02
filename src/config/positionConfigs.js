@@ -95,7 +95,7 @@ const POSITION_CONFIGS = {
       'avoided_tackles': 'Total missed tackles forced on defenders'
     },
     invertedStats: ['drop_rate'],
-    outlierStats: ['yards_after_catch_per_reception'],
+    outlierStats: ['yards_after_catch_per_reception', 'drop_rate'],
     usageColumn: 'routes',
     minUsage: 100,
     positionFilter: 'WR',
@@ -145,7 +145,8 @@ const POSITION_CONFIGS = {
       'grades_hands_fumble': 'PFF grade for ball security (higher is better)'
     },
     invertedStats: [],
-    outlierStats: ['ypa', 'yco_attempt', 'yprr'],
+    outlierStats: ['yco_attempt'],
+    twoSidedOutlierStats: ['ypa', 'yprr'],
     usageColumn: 'attempts',
     minUsage: 20,
     positionFilter: ['RB', 'HB'],
@@ -249,7 +250,8 @@ const POSITION_CONFIGS = {
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
-    outlierStats: ['missed_tackle_rate', 'qb_rating_against', 'forced_incompletion_rate'],
+    outlierStats: ['missed_tackle_rate'],
+    twoSidedOutlierStats: ['qb_rating_against', 'forced_incompletion_rate'],
     usageColumn: 'snap_counts_coverage',
     minUsage: 100,
     positionFilter: 'CB',
@@ -397,7 +399,7 @@ const POSITION_CONFIGS = {
       'grades_run_block': 'PFF grade for run blocking as an in-line blocker'
     },
     invertedStats: ['drop_rate'],
-    outlierStats: ['yards_after_catch_per_reception'],
+    outlierStats: ['yards_after_catch_per_reception', 'drop_rate'],
     usageColumn: 'routes',
     minUsage: 75,
     positionFilter: 'TE',
@@ -517,7 +519,8 @@ const POSITION_CONFIGS = {
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
-    outlierStats: ['prp', 'qb_rating_against', 'missed_tackle_rate', 'stop_percent'],
+    outlierStats: ['prp', 'missed_tackle_rate', 'stop_percent'],
+    twoSidedOutlierStats: ['qb_rating_against'],
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: 'LB',
@@ -575,7 +578,8 @@ const POSITION_CONFIGS = {
       'snap_counts_fs': 'Number of snaps played at free safety (deep middle)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
-    outlierStats: ['missed_tackle_rate', 'stop_percent', 'qb_rating_against'],
+    outlierStats: ['missed_tackle_rate', 'stop_percent'],
+    twoSidedOutlierStats: ['qb_rating_against'],
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: 'S',
