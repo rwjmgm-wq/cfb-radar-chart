@@ -38,6 +38,7 @@ const POSITION_CONFIGS = {
       'twp_rate': 'Percentage of plays that should have resulted in a turnover (lower is better)'
     },
     invertedStats: ['twp_rate', 'pressure_to_sack_rate'],
+    outlierStats: ['avg_depth_of_target', 'ypa'],
     usageColumn: 'dropbacks',
     minUsage: 100,
     compositeScoreConfig: {
@@ -94,6 +95,7 @@ const POSITION_CONFIGS = {
       'avoided_tackles': 'Total missed tackles forced on defenders'
     },
     invertedStats: ['drop_rate'],
+    outlierStats: ['yards_after_catch_per_reception'],
     usageColumn: 'routes',
     minUsage: 100,
     positionFilter: 'WR',
@@ -143,6 +145,7 @@ const POSITION_CONFIGS = {
       'grades_hands_fumble': 'PFF grade for ball security (higher is better)'
     },
     invertedStats: [],
+    outlierStats: ['ypa', 'yco_attempt', 'yprr'],
     usageColumn: 'attempts',
     minUsage: 20,
     positionFilter: ['RB', 'HB'],
@@ -195,6 +198,7 @@ const POSITION_CONFIGS = {
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)'
     },
     invertedStats: ['missed_tackle_rate'],
+    outlierStats: ['stop_percent', 'total_pressures', 'prp', 'missed_tackle_rate'],
     usageColumn: 'snap_counts_pass_rush',
     minUsage: 50,
     positionFilter: ['EDGE', 'ED'],
@@ -245,6 +249,7 @@ const POSITION_CONFIGS = {
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
+    outlierStats: ['missed_tackle_rate', 'qb_rating_against', 'forced_incompletion_rate'],
     usageColumn: 'snap_counts_coverage',
     minUsage: 100,
     positionFilter: 'CB',
@@ -291,6 +296,7 @@ const POSITION_CONFIGS = {
       'zone_grades_run_block': 'PFF grade for blocking in zone running schemes'
     },
     invertedStats: ['pressures_allowed', 'sacks_allowed'],
+    outlierStats: ['pressures_allowed'],
     usageColumn: 'snap_counts_block',
     minUsage: 150,
     positionFilter: 'T',
@@ -339,6 +345,7 @@ const POSITION_CONFIGS = {
       'zone_grades_run_block': 'PFF grade for blocking in zone schemes at guard/center'
     },
     invertedStats: ['pressures_allowed', 'sacks_allowed'],
+    outlierStats: ['pressures_allowed'],
     usageColumn: 'snap_counts_block',
     minUsage: 150,
     positionFilter: ['G', 'C'],
@@ -390,6 +397,7 @@ const POSITION_CONFIGS = {
       'grades_run_block': 'PFF grade for run blocking as an in-line blocker'
     },
     invertedStats: ['drop_rate'],
+    outlierStats: ['yards_after_catch_per_reception'],
     usageColumn: 'routes',
     minUsage: 75,
     positionFilter: 'TE',
@@ -452,6 +460,7 @@ const POSITION_CONFIGS = {
       'snap_counts_dl_over_t': 'Number of snaps lined up over the offensive tackle'
     },
     invertedStats: ['missed_tackle_rate'],
+    outlierStats: ['total_pressures', 'pass_rush_win_rate', 'prp'],
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: ['DL', 'DI'],
@@ -508,6 +517,7 @@ const POSITION_CONFIGS = {
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
+    outlierStats: ['prp', 'qb_rating_against', 'missed_tackle_rate', 'stop_percent'],
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: 'LB',
@@ -565,6 +575,7 @@ const POSITION_CONFIGS = {
       'snap_counts_fs': 'Number of snaps played at free safety (deep middle)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
+    outlierStats: ['missed_tackle_rate', 'stop_percent', 'qb_rating_against'],
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: 'S',

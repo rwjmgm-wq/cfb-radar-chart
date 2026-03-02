@@ -683,6 +683,17 @@ function MultiPositionRadarCharts() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [qualifiedPlayers.length, comparisonMode]);
 
+  const getIQRBounds = (values) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    const iqr = q3 - q1;
+    return {
+      min: q1 - 1.5 * iqr,
+      max: q3 + 1.5 * iqr,
+    };
+  };
+
   const normalizePlayerData = (player) => {
     if (!player || allQualifiedPlayers.length === 0) return [];
 
@@ -691,6 +702,8 @@ function MultiPositionRadarCharts() {
       const values = allQualifiedPlayers.map(p => p[stat]).filter(v => v != null && !isNaN(v));
       if (values.length === 0) {
         ranges[stat] = { min: 0, max: 100 };
+      } else if ((currentPositionConfig.outlierStats || []).includes(stat)) {
+        ranges[stat] = getIQRBounds(values);
       } else {
         ranges[stat] = {
           min: Math.min(...values),
