@@ -7,10 +7,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 import KeyboardShortcutsGuide from './components/KeyboardShortcutsGuide';
 import { normalizeTeamName, getTeamColors } from './utils/teamUtils';
 import POSITION_CONFIGS from './config/positionConfigs';
+import { DRAFT_PICKS } from './data/draftData';
 
 function MultiPositionRadarCharts() {
   const [selectedPosition, setSelectedPosition] = useState('QB');
-  const [globalData, setGlobalData] = useState(null);
+  const [yearlyData, setYearlyData] = useState({});
+  const [appReady, setAppReady] = useState(false);
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [compareYear, setCompareYear] = useState('all');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [compareIndex, setCompareIndex] = useState(1);
   const [comparisonMode, setComparisonMode] = useState(false);
@@ -32,9 +36,16 @@ function MultiPositionRadarCharts() {
   const [showSimilarPlayers, setShowSimilarPlayers] = useState(false);
   const [similarPlayers, setSimilarPlayers] = useState([]);
   const [showTop10Modal, setShowTop10Modal] = useState(false);
+  const [draftData, setDraftData] = useState(null);
+  const [cohortCompareMode, setCohortCompareMode] = useState(false);
+  const [selectedCompareCohort, setSelectedCompareCohort] = useState('1');
 
   const currentPositionConfig = POSITION_CONFIGS[selectedPosition];
-  const currentData = globalData;
+  const loadedYears = Object.keys(yearlyData).map(Number).sort((a, b) => a - b);
+  const globalData = loadedYears.length > 0 ? Object.values(yearlyData).flat() : null;
+  const currentData = globalData
+    ? (selectedYear === 'all' ? globalData : globalData.filter(p => p.season === selectedYear))
+    : null;
 
   // Theme colors
   const themeColors = {
@@ -163,30 +174,46 @@ function MultiPositionRadarCharts() {
   // Load data from localStorage on mount
   useEffect(() => {
     try {
-      const savedData = localStorage.getItem('cfb_radar_data');
-      const savedStats = localStorage.getItem('cfb_radar_stats');
-
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-        setGlobalData(parsedData);
-        console.log('✓ Loaded', parsedData.length, 'players from localStorage');
-        setUploadProgress(`✓ Restored ${parsedData.length} players from previous session`);
-        setTimeout(() => setUploadProgress(''), 4000);
+      // Try new yearly format first
+      const savedYearly = localStorage.getItem('cfb_radar_yearly_data');
+      if (savedYearly) {
+        const parsed = JSON.parse(savedYearly);
+        setYearlyData(parsed);
+        setAppReady(true);
+        const total = Object.values(parsed).flat().length;
+        console.log('✓ Restored', total, 'players across', Object.keys(parsed).length, 'seasons from localStorage');
+        return;
       }
 
-      if (savedStats) {
-        const parsedStats = JSON.parse(savedStats);
-        setDataStats(parsedStats);
-        console.log('✓ Loaded stats from localStorage');
+      // Fall back to legacy flat format — load as year "Legacy"
+      const savedData = localStorage.getItem('cfb_radar_data');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        const legacyYear = 'Legacy';
+        const tagged = parsedData.map(p => ({ ...p, season: legacyYear }));
+        const legacyYearlyData = { [legacyYear]: tagged };
+        setYearlyData(legacyYearlyData);
+        setAppReady(true);
+        // Migrate to new format
+        localStorage.setItem('cfb_radar_yearly_data', JSON.stringify(legacyYearlyData));
+        console.log('✓ Migrated', parsedData.length, 'players from legacy localStorage format');
       }
     } catch (e) {
       console.warn('Failed to load from localStorage:', e);
-      // Clear corrupted data
+      localStorage.removeItem('cfb_radar_yearly_data');
       localStorage.removeItem('cfb_radar_data');
       localStorage.removeItem('cfb_radar_stats');
     }
   }, []);
 
+  // Build draft data map from bundled static data
+  useEffect(() => {
+    const map = {};
+    DRAFT_PICKS.forEach(([name, season, round, pick]) => {
+      map[`${name}|${season}`] = { round, pick };
+    });
+    setDraftData(map);
+  }, []);
   const handlePositionSelect = (position) => {
     setSelectedPosition(position);
     setCurrentIndex(0);
@@ -195,25 +222,26 @@ function MultiPositionRadarCharts() {
     setMinUsage(POSITION_CONFIGS[position].minUsage);
     setSelectedTeam('');
     setSelectedConference('');
+    setCohortCompareMode(false);
   };
 
   const clearFilters = () => {
     setSelectedTeam('');
     setSelectedConference('');
+    setSelectedYear('all');
+    setCompareYear('all');
     setMinUsage(currentPositionConfig.minUsage);
     setShowTopTenPercent(false);
     setShowFavoritesOnly(false);
+    setCohortCompareMode(false);
     setCurrentIndex(0);
     setCompareIndex(1);
   };
 
-  const handleFileUpload = async (event) => {
-    const files = Array.from(event.target.files);
+  const handleFileUploadForYear = async (year, files) => {
     if (files.length === 0) return;
 
-    setIsUploadingFiles(true);
-    const fileNames = files.map(f => f.name).join(', ');
-    setUploadProgress(`Parsing ${files.length} file${files.length > 1 ? 's' : ''}: ${fileNames}`);
+    setYearlyData(prev => ({ ...prev, [year]: 'loading' }));
 
     try {
       const fileValidation = [];
@@ -229,19 +257,18 @@ function MultiPositionRadarCharts() {
 
           const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
 
-          // Validate that file has a player name column
           const hasPlayerColumn = headers.some(h =>
             h.toLowerCase() === 'player' || h.toLowerCase() === 'name'
           );
           if (!hasPlayerColumn) {
             fileValidation.push(`⚠️ ${file.name}: Missing 'player' or 'name' column`);
           }
-          
+
           return lines.slice(1).map(line => {
             const values = [];
             let current = '';
             let inQuotes = false;
-            
+
             for (let i = 0; i < line.length; i++) {
               const char = line[i];
               if (char === '"') {
@@ -254,7 +281,7 @@ function MultiPositionRadarCharts() {
               }
             }
             values.push(current.trim().replace(/^["']|["']$/g, ''));
-            
+
             const obj = {};
             headers.forEach((header, i) => {
               const value = values[i]?.trim();
@@ -270,154 +297,108 @@ function MultiPositionRadarCharts() {
         })
       );
 
+      // Merge CSVs for this year by player name
       const mergedData = {};
-      
-      if (globalData) {
-        globalData.forEach(player => {
-          mergedData[player.player] = { ...player };
-        });
-      }
-      
       parsedFiles.forEach(csvData => {
         csvData.forEach(row => {
           const playerName = row.player || row.name;
           if (!playerName) return;
 
           const playerPosition = (row.position || row.pos || '').toUpperCase().trim();
-          
+
           if (!mergedData[playerName]) {
             mergedData[playerName] = {
               ...row,
               player: playerName,
+              season: year,
               height: row.ht || row.height,
               weight: row.wt || row.weight,
-              year: row.yr || row.year
             };
           } else {
             const isWR = playerPosition === 'WR';
             const isRB = playerPosition === 'RB' || playerPosition === 'HB';
-
             const statsToIgnore = new Set();
 
             if (isWR) {
-              if (mergedData[playerName].avoided_tackles && row.attempts) {
-                statsToIgnore.add('avoided_tackles');
-              }
+              if (mergedData[playerName].avoided_tackles && row.attempts) statsToIgnore.add('avoided_tackles');
             } else if (isRB) {
-              if (mergedData[playerName].avoided_tackles && row.routes) {
-                statsToIgnore.add('avoided_tackles');
-              }
+              if (mergedData[playerName].avoided_tackles && row.routes) statsToIgnore.add('avoided_tackles');
             }
 
             Object.keys(row).forEach(key => {
-              if (!statsToIgnore.has(key)) {
-                mergedData[playerName][key] = row[key];
-              }
+              if (!statsToIgnore.has(key)) mergedData[playerName][key] = row[key];
             });
 
             if (row.ht) mergedData[playerName].height = row.ht;
             if (row.wt) mergedData[playerName].weight = row.wt;
-            if (row.yr) mergedData[playerName].year = row.yr;
           }
         });
       });
 
-      // Merge with auto-loaded player metadata (height, weight, year, position)
+      // Merge with player metadata
       Object.keys(mergedData).forEach(playerName => {
         if (playerMetadata[playerName]) {
-          if (!mergedData[playerName].height && playerMetadata[playerName].height) {
+          if (!mergedData[playerName].height && playerMetadata[playerName].height)
             mergedData[playerName].height = playerMetadata[playerName].height;
-          }
-          if (!mergedData[playerName].weight && playerMetadata[playerName].weight) {
+          if (!mergedData[playerName].weight && playerMetadata[playerName].weight)
             mergedData[playerName].weight = playerMetadata[playerName].weight;
-          }
-          if (!mergedData[playerName].year && playerMetadata[playerName].year) {
-            mergedData[playerName].year = playerMetadata[playerName].year;
-          }
-          if (!mergedData[playerName].position && !mergedData[playerName].pos && playerMetadata[playerName].position) {
+          if (!mergedData[playerName].position && !mergedData[playerName].pos && playerMetadata[playerName].position)
             mergedData[playerName].position = playerMetadata[playerName].position;
-          }
         }
       });
 
-      const merged = Object.values(mergedData);
-
-      // Calculate statistics
-      const positionBreakdown = {};
-      const withMetadata = merged.filter(p => p.height || p.weight || p.year).length;
-      merged.forEach(player => {
-        const pos = (player.position || player.pos || 'Unknown').toUpperCase();
-        positionBreakdown[pos] = (positionBreakdown[pos] || 0) + 1;
-      });
-
-      const topPositions = Object.entries(positionBreakdown)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([pos, count]) => `${count} ${pos}`)
-        .join(', ');
-
-      let successMessage = `✓ Loaded ${merged.length} players successfully! (${topPositions}) • ${withMetadata} with height/weight/year data`;
+      const yearPlayers = Object.values(mergedData);
 
       if (fileValidation.length > 0) {
         console.warn('File validation warnings:', fileValidation);
-        successMessage += ' | ⚠️ ' + fileValidation.join(', ');
       }
+      console.log(`Loaded ${yearPlayers.length} players for ${year}`);
 
-      setUploadProgress(successMessage);
-
-      console.log('Parsed data sample:', merged[0]);
-      console.log('Total players:', merged.length);
-      console.log('Position breakdown:', positionBreakdown);
-      console.log('Players with metadata:', withMetadata);
-
-      // Save statistics for display
-      setDataStats({
-        totalPlayers: merged.length,
-        positionBreakdown,
-        withMetadata,
-        topPositions
+      setYearlyData(prev => {
+        const updated = { ...prev, [year]: yearPlayers };
+        // Save to localStorage
+        try {
+          localStorage.setItem('cfb_radar_yearly_data', JSON.stringify(updated));
+        } catch (e) {
+          console.warn('Failed to save to localStorage:', e);
+        }
+        return updated;
       });
 
-      setGlobalData(merged);
-      setCurrentIndex(0);
-      setCompareIndex(1);
-
-      // Save to localStorage
-      try {
-        localStorage.setItem('cfb_radar_data', JSON.stringify(merged));
-        localStorage.setItem('cfb_radar_stats', JSON.stringify({
-          totalPlayers: merged.length,
-          positionBreakdown,
-          withMetadata,
-          topPositions
-        }));
-        console.log('Data saved to localStorage');
-      } catch (e) {
-        console.warn('Failed to save to localStorage:', e);
-      }
-
-      // Clear success message after 5 seconds (more time to read detailed info)
-      setTimeout(() => {
-        setUploadProgress('');
-        setIsUploadingFiles(false);
-      }, 5000);
     } catch (error) {
-      console.error('Error parsing CSVs:', error);
-      const errorMsg = error.message || 'Unknown error';
-      setUploadProgress(`✗ Error: ${errorMsg}. Please check the CSV format and try again.`);
-      setIsUploadingFiles(false);
-      setTimeout(() => setUploadProgress(''), 7000);
+      console.error(`Error parsing CSVs for ${year}:`, error);
+      // Remove the loading placeholder on error
+      setYearlyData(prev => {
+        const updated = { ...prev };
+        delete updated[year];
+        return updated;
+      });
     }
   };
 
+  // Legacy handler used by the "Add Files" button in the nav bar when data is already loaded
+  const handleFileUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    // Upload into a special "Added" bucket so existing data isn't disrupted
+    const year = `added_${Date.now()}`;
+    await handleFileUploadForYear(year, files);
+    event.target.value = '';
+  };
+
   const clearAllData = () => {
-    setGlobalData(null);
+    setYearlyData({});
+    setAppReady(false);
+    setSelectedYear('all');
+    setCompareYear('all');
+    setCohortCompareMode(false);
     setDataStats(null);
     setCurrentIndex(0);
     setCompareIndex(1);
 
     // Clear localStorage
     try {
+      localStorage.removeItem('cfb_radar_yearly_data');
       localStorage.removeItem('cfb_radar_data');
       localStorage.removeItem('cfb_radar_stats');
       console.log('Cleared data from localStorage');
@@ -530,6 +511,15 @@ function MultiPositionRadarCharts() {
     return similarities;
   };
 
+  const normalizeDraftName = (name) =>
+    (name || '').toLowerCase().replace(/\bjr\.?|\bsr\.?|\bii\b|\biii\b|\biv\b/g, '').replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+
+  const getPlayerCohort = (player) => {
+    if (!draftData) return null;
+    const key = `${normalizeDraftName(player.player)}|${Number(player.season) + 1}`;
+    return draftData[key] || null;
+  };
+
   let qualifiedPlayers = currentData
     ? currentData
         .filter(p => {
@@ -565,6 +555,7 @@ function MultiPositionRadarCharts() {
             return false;
           }
 
+
           return true;
         })
         .sort((a, b) => {
@@ -589,6 +580,20 @@ function MultiPositionRadarCharts() {
 
   // Keep full dataset for normalization
   const allQualifiedPlayers = qualifiedPlayers;
+
+  // Full cross-year pool (all years, same position/usage/cohort filters, no year filter) for compare normalization
+  const globalQualifiedPlayers = globalData
+    ? globalData.filter(p => {
+        if ((p[currentPositionConfig.usageColumn] || 0) < minUsage) return false;
+        if (currentPositionConfig.positionFilter) {
+          const pos = (p.position || p.pos || '').toUpperCase().trim();
+          if (Array.isArray(currentPositionConfig.positionFilter))
+            return currentPositionConfig.positionFilter.includes(pos);
+          return pos === currentPositionConfig.positionFilter;
+        }
+return true;
+      })
+    : [];
 
   // Apply top 10% filter only for display purposes
   if (showTopTenPercent && currentPositionConfig.compositeScoreConfig && qualifiedPlayers.length > 0) {
@@ -632,15 +637,16 @@ function MultiPositionRadarCharts() {
     : [];
 
   useEffect(() => {
-    if (qualifiedPlayers.length > 0) {
-      if (currentIndex >= qualifiedPlayers.length) {
-        setCurrentIndex(0);
-      }
-      if (compareIndex >= qualifiedPlayers.length) {
-        setCompareIndex(Math.min(1, qualifiedPlayers.length - 1));
-      }
+    if (qualifiedPlayers.length > 0 && currentIndex >= qualifiedPlayers.length) {
+      setCurrentIndex(0);
     }
-  }, [qualifiedPlayers.length, currentIndex, compareIndex]);
+  }, [qualifiedPlayers.length, currentIndex]);
+
+  useEffect(() => {
+    if (qualifiedPlayers.length > 0 && compareIndex >= qualifiedPlayers.length) {
+      setCompareIndex(0);
+    }
+  }, [qualifiedPlayers.length, compareIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -705,12 +711,12 @@ function MultiPositionRadarCharts() {
     };
   };
 
-  const normalizePlayerData = (player) => {
-    if (!player || allQualifiedPlayers.length === 0) return [];
+  const normalizePlayerData = (player, pool = allQualifiedPlayers) => {
+    if (!player || pool.length === 0) return [];
 
     const ranges = {};
     currentPositionConfig.stats.forEach(stat => {
-      const values = allQualifiedPlayers.map(p => p[stat]).filter(v => v != null && !isNaN(v));
+      const values = pool.map(p => p[stat]).filter(v => v != null && !isNaN(v));
       if (values.length === 0) {
         ranges[stat] = { min: 0, max: 100 };
       } else if ((currentPositionConfig.twoSidedOutlierStats || []).includes(stat)) {
@@ -751,10 +757,69 @@ function MultiPositionRadarCharts() {
   };
 
   const currentPlayer = qualifiedPlayers.length > 0 ? qualifiedPlayers[Math.min(currentIndex, qualifiedPlayers.length - 1)] : null;
-  const comparePlayer = comparisonMode && qualifiedPlayers.length > 1 ? qualifiedPlayers[Math.min(compareIndex, qualifiedPlayers.length - 1)] : null;
-  
-  const player1Data = currentPlayer ? normalizePlayerData(currentPlayer) : [];
-  const player2Data = comparePlayer ? normalizePlayerData(comparePlayer) : [];
+
+  // For cross-year comparison: Player 2 gets its own year-filtered normalization pool
+  const compareQualifiedPlayers = comparisonMode && compareYear !== 'all'
+    ? globalQualifiedPlayers.filter(p => p.season === compareYear)
+    : globalQualifiedPlayers;
+  const comparePlayersSortFn = (a, b) => {
+    const suffixes = ['JR', 'SR', 'II', 'III', 'IV', 'V', 'JR.', 'SR.'];
+    const getLastName = (fullName) => {
+      const parts = fullName.split(' ').filter(p => p.trim());
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const part = parts[i].toUpperCase().replace(/\./g, '');
+        if (!suffixes.includes(part)) return parts[i];
+      }
+      return parts[parts.length - 1];
+    };
+    return getLastName(a.player).localeCompare(getLastName(b.player));
+  };
+  const comparePlayers = comparisonMode
+    ? (compareYear === 'all'
+        ? globalQualifiedPlayers.slice().sort(comparePlayersSortFn)
+        : globalQualifiedPlayers
+            .filter(p => p.season === compareYear)
+            .sort(comparePlayersSortFn))
+    : [];
+  const comparePlayer = comparisonMode && comparePlayers.length > 0
+    ? comparePlayers[Math.min(compareIndex, comparePlayers.length - 1)]
+    : null;
+
+  // Cohort compare: build normalization pool from all years filtered to the selected draft cohort
+  const cohortPool = (cohortCompareMode && draftData && globalData)
+    ? globalData.filter(p => {
+        if ((p[currentPositionConfig.usageColumn] || 0) < minUsage) return false;
+        if (currentPositionConfig.positionFilter) {
+          const pos = (p.position || p.pos || '').toUpperCase().trim();
+          const posMatch = Array.isArray(currentPositionConfig.positionFilter)
+            ? currentPositionConfig.positionFilter.includes(pos)
+            : pos === currentPositionConfig.positionFilter;
+          if (!posMatch) return false;
+        }
+        const cohort = getPlayerCohort(p);
+        if (!cohort) return false;
+        if (selectedCompareCohort === '1' && cohort.round !== 1) return false;
+        if (selectedCompareCohort === '2-3' && (cohort.round < 2 || cohort.round > 3)) return false;
+        if (selectedCompareCohort === '4+' && cohort.round < 4) return false;
+        return true;
+      })
+    : null;
+
+  // In compare mode, both players normalize against the same shared pool derived from
+  // globalQualifiedPlayers (position+usage only, no team/conf filters) so axes are consistent.
+  // If both players are from the same specific year, restrict to that year; otherwise all years.
+  const sharedComparePool = comparisonMode && comparePlayer
+    ? (selectedYear !== 'all' && compareYear !== 'all' && selectedYear === compareYear
+        ? globalQualifiedPlayers.filter(p => p.season === selectedYear)
+        : globalQualifiedPlayers)
+    : null;
+
+  const player1Data = currentPlayer
+    ? normalizePlayerData(currentPlayer, sharedComparePool || cohortPool || allQualifiedPlayers)
+    : [];
+  const player2Data = comparePlayer
+    ? normalizePlayerData(comparePlayer, sharedComparePool)
+    : [];
   
   const radarData = comparisonMode && player2Data.length > 0
     ? player1Data.map((item, idx) => ({
@@ -1012,10 +1077,9 @@ function MultiPositionRadarCharts() {
           <p className={`${colors.textMuted} text-lg`}>Advanced Performance Analysis Tool</p>
         </div>
 
-        {/* Upload Section - Shows when no data */}
-        {!globalData ? (
-          <div className="max-w-2xl mx-auto">
-            {/* Loading Metadata Indicator */}
+        {/* Upload Section - Shows when no data or user hasn't clicked Continue yet */}
+        {!globalData || !appReady ? (
+          <div className="max-w-3xl mx-auto">
             {isLoadingMetadata && (
               <div className="mb-6 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-center gap-3">
                 <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
@@ -1023,29 +1087,24 @@ function MultiPositionRadarCharts() {
               </div>
             )}
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-12 border-2 border-dashed border-slate-600 hover:border-slate-500 transition-colors text-center">
-              {isUploadingFiles ? (
-                <Loader2 className="w-20 h-20 mx-auto mb-6 text-blue-400 animate-spin" />
-              ) : (
-                <Upload className="w-20 h-20 mx-auto mb-6 text-slate-500" />
-              )}
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <h2 className="text-2xl font-bold">{isUploadingFiles ? 'Processing...' : 'Upload Your Data'}</h2>
+            <div className={`${theme === 'dark' ? 'bg-slate-800/50 border-slate-600' : 'bg-white border-gray-200'} backdrop-blur-sm rounded-2xl p-8 border mb-6`}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Select a season to upload data</h2>
                 <div className="relative inline-block">
                   <button
                     onClick={() => setShowTooltip(!showTooltip)}
                     onMouseEnter={() => setShowTooltip(true)}
                     onMouseLeave={() => setShowTooltip(false)}
-                    className="w-5 h-5 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center cursor-help transition-colors"
+                    className="w-6 h-6 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center cursor-help transition-colors"
                   >
                     <span className="text-xs font-bold text-gray-400">?</span>
                   </button>
                   {showTooltip && (
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-80 z-50">
+                    <div className="absolute right-0 bottom-full mb-3 w-80 z-50">
                       <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 shadow-2xl">
                         <div className="text-xs text-left space-y-2">
                           <p className="font-semibold text-blue-400 mb-2">This tool works with PFF data only</p>
-                          <p className="text-gray-300">For full functionality, download these reports from PFF Premium:</p>
+                          <p className="text-gray-300">Download these reports from PFF Premium for each season:</p>
                           <ul className="text-gray-400 space-y-1 ml-3">
                             <li>• NCAA Passing Grades</li>
                             <li>• Receiving Grades</li>
@@ -1061,46 +1120,106 @@ function MultiPositionRadarCharts() {
                             <li>• Coverage Scheme</li>
                           </ul>
                         </div>
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 rotate-45"></div>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
-              {uploadProgress ? (
-                <div className={`mb-4 px-4 py-3 rounded-lg text-sm ${uploadProgress.includes('Error') || uploadProgress.includes('✗') ? 'bg-red-500/10 border border-red-500/30 text-red-300' : uploadProgress.includes('success') || uploadProgress.includes('✓') ? 'bg-green-500/10 border border-green-500/30 text-green-300' : 'bg-blue-500/10 border border-blue-500/30 text-blue-300'}`}>
-                  <div className="break-words whitespace-pre-wrap">{uploadProgress}</div>
-                </div>
-              ) : (
-                <p className={`${colors.textMuted} mb-4`}>
-                  Select one or more CSV files containing player statistics
+
+              {/* Year grid */}
+              <div className="grid grid-cols-4 gap-3 mb-8">
+                {Array.from({ length: 11 }, (_, i) => 2025 - i).map(year => {
+                  const yearData = yearlyData[year];
+                  const isLoaded = Array.isArray(yearData);
+                  const isLoading = yearData === 'loading';
+                  return (
+                    <label
+                      key={year}
+                      className={`relative cursor-pointer rounded-xl border-2 p-4 flex flex-col items-center justify-center gap-2 transition-all min-h-[90px]
+                        ${isLoaded
+                          ? 'border-green-500 bg-green-500/10 cursor-default'
+                          : isLoading
+                            ? 'border-blue-400 bg-blue-500/10 cursor-default'
+                            : theme === 'dark'
+                              ? 'border-dashed border-slate-600 hover:border-slate-400 hover:bg-slate-700/30'
+                              : 'border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                        }`}
+                    >
+                      <span className={`text-lg font-bold ${isLoaded ? 'text-green-400' : isLoading ? 'text-blue-400' : colors.text}`}>
+                        {year}
+                      </span>
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                      ) : isLoaded ? (
+                        <span className="text-xs text-green-400">{yearData.length} players</span>
+                      ) : (
+                        <Upload className={`w-4 h-4 ${colors.textMuted}`} />
+                      )}
+                      {!isLoaded && !isLoading && (
+                        <input
+                          type="file"
+                          accept=".csv"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files);
+                            if (files.length > 0) handleFileUploadForYear(year, files);
+                            e.target.value = '';
+                          }}
+                        />
+                      )}
+                      {isLoaded && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setYearlyData(prev => {
+                              const updated = { ...prev };
+                              delete updated[year];
+                              try {
+                                localStorage.setItem('cfb_radar_yearly_data', JSON.stringify(updated));
+                              } catch {}
+                              return updated;
+                            });
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors"
+                          title="Remove this year"
+                        >
+                          <X className="w-3 h-3 text-red-400" />
+                        </button>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Continue button */}
+              <div className="text-center">
+                <button
+                  disabled={Object.values(yearlyData).filter(v => Array.isArray(v)).length === 0}
+                  onClick={() => {
+                    setCurrentIndex(0);
+                    setAppReady(true);
+                    const loadedYearNums = Object.keys(yearlyData).filter(k => Array.isArray(yearlyData[k])).map(Number).filter(n => !isNaN(n));
+                    if (loadedYearNums.length > 0) setSelectedYear(Math.max(...loadedYearNums));
+                  }}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-10 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                >
+                  Continue →
+                </button>
+                <p className={`text-sm ${colors.textMuted} mt-3`}>
+                  Load one or more seasons, then click Continue
                 </p>
-              )}
-              <label className={`cursor-pointer inline-block ${isUploadingFiles ? 'opacity-50 pointer-events-none' : ''}`}>
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all">
-                  Choose Files
-                </div>
-                <input
-                  type="file"
-                  accept=".csv"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              <p className={`text-sm ${colors.textMuted} mt-4`}>
-                Files will be merged by player name • Data works across all positions
-              </p>
+              </div>
             </div>
 
-            <div className={`mt-8 ${theme === 'dark' ? 'bg-slate-800/30 border-slate-700/30' : 'bg-gray-100 border-gray-200'} rounded-xl p-6 border`}>
+            <div className={`${theme === 'dark' ? 'bg-slate-800/30 border-slate-700/30' : 'bg-gray-100 border-gray-200'} rounded-xl p-6 border`}>
               <h3 className={`text-sm font-semibold ${colors.textSecondary} mb-3`}>How it works:</h3>
               <ul className={`space-y-2 text-sm ${colors.textMuted}`}>
-                <li>• Upload your CSV files once (they can contain multiple position groups)</li>
+                <li>• Click a year box to upload that season's CSV files</li>
+                <li>• Each season is stored separately so normalization is per-year</li>
                 <li>• Data is automatically saved in your browser and persists on page refresh</li>
                 <li>• Nothing is uploaded to a server - all data stays local</li>
-                <li>• Switch between positions without re-uploading</li>
-                <li>• Compare players, filter by stats, and download visualizations</li>
+                <li>• Compare players across seasons once multiple years are loaded</li>
               </ul>
             </div>
           </div>
@@ -1224,6 +1343,48 @@ function MultiPositionRadarCharts() {
                     />
                   </label>
 
+                  {loadedYears.length > 1 && (
+                    <label className="text-sm flex items-center gap-2">
+                      <span className={colors.textMuted}>Season:</span>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => {
+                          setSelectedYear(e.target.value === 'all' ? 'all' : Number(e.target.value));
+                          setCurrentIndex(0);
+                          setCompareIndex(1);
+                        }}
+                        className={`${colors.inputBg} border ${colors.borderLight} rounded-lg px-3 py-2 ${colors.text} focus:outline-none focus:border-blue-500 transition-colors text-sm`}
+                      >
+                        <option value="all">All Years</option>
+                        {loadedYears.map(yr => (
+                          <option key={yr} value={yr}>{yr}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {!comparisonMode && currentPlayer && (
+                    <button
+                      onClick={handleFindSimilarPlayers}
+                      className={`text-sm px-3 py-2 ${colors.inputBg} border ${colors.borderLight} rounded-lg ${colors.hover} ${colors.text} flex items-center gap-2 transition-colors`}
+                      title="Find similar players"
+                    >
+                      <Users className="w-4 h-4" />
+                      Find Similar
+                    </button>
+                  )}
+
+                  {!comparisonMode && currentPositionConfig.compositeScoreConfig && (
+                    <button
+                      onClick={() => setShowTop10Modal(true)}
+                      className={`text-sm px-3 py-2 ${colors.inputBg} border ${colors.borderLight} rounded-lg ${colors.hover} ${colors.text} flex items-center gap-2 transition-colors`}
+                      title="View top 10 players"
+                    >
+                      <Trophy className="w-4 h-4" />
+                      Top 10
+                    </button>
+                  )}
+
                   {/* Team Filter */}
                   {availableTeams.length > 0 && (
                     <label className="text-sm flex items-center gap-2">
@@ -1318,21 +1479,55 @@ function MultiPositionRadarCharts() {
                     <span className={`text-xs font-bold ${colors.textMuted}`}>⌨</span>
                   </button>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={comparisonMode}
-                    onChange={(e) => setComparisonMode(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className={`text-sm font-semibold ${colors.textSecondary} group-hover:${colors.text} transition-colors`}>Compare Mode</span>
-                </label>
+                <div className="flex items-center gap-1">
+                  <span className={`text-sm font-semibold ${colors.textMuted} mr-1`}>Mode:</span>
+                  {[
+                    { id: 'none', label: 'Single Player' },
+                    { id: 'player', label: 'Player vs Player' },
+                    { id: 'cohort', label: `Player vs Drafted ${selectedPosition}s`, disabled: !draftData },
+                  ].map(({ id, label, disabled }) => {
+                    const active = id === 'player' ? comparisonMode : id === 'cohort' ? cohortCompareMode : (!comparisonMode && !cohortCompareMode);
+                    return (
+                      <button
+                        key={id}
+                        disabled={disabled}
+                        onClick={() => {
+                          setComparisonMode(id === 'player');
+                          setCohortCompareMode(id === 'cohort');
+                        }}
+                        className={`text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                          active
+                            ? 'bg-blue-500 border-blue-500 text-white font-semibold'
+                            : `${colors.inputBg} ${colors.borderLight} ${colors.textMuted} ${colors.hover}`
+                        }`}
+                        title={disabled ? 'Draft data loading…' : undefined}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="relative z-[100]">
                   <label className="text-sm">
-                    <span className={`${colors.textMuted} mb-2 block font-medium`}>Player 1:</span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`${colors.textMuted} font-medium`}>Player 1:</span>
+                      {loadedYears.length > 1 && comparisonMode && (
+                        <select
+                          value={selectedYear}
+                          onChange={(e) => {
+                            setSelectedYear(e.target.value === 'all' ? 'all' : Number(e.target.value));
+                            setCurrentIndex(0);
+                          }}
+                          className={`${colors.inputBg} border ${colors.borderLight} rounded-lg px-2 py-1 ${colors.text} text-xs focus:outline-none focus:border-blue-500 transition-colors`}
+                        >
+                          <option value="all">All Years</option>
+                          {loadedYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}
+                        </select>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
@@ -1371,7 +1566,22 @@ function MultiPositionRadarCharts() {
                 {comparisonMode && (
                   <div className="relative z-[100]">
                     <label className="text-sm">
-                      <span className={`${colors.textMuted} mb-2 block font-medium`}>Player 2:</span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`${colors.textMuted} font-medium`}>Player 2:</span>
+                        {loadedYears.length > 1 && (
+                          <select
+                            value={compareYear}
+                            onChange={(e) => {
+                              setCompareYear(e.target.value === 'all' ? 'all' : Number(e.target.value));
+                              setCompareIndex(0);
+                            }}
+                            className={`${colors.inputBg} border ${colors.borderLight} rounded-lg px-2 py-1 ${colors.text} text-xs focus:outline-none focus:border-blue-500 transition-colors`}
+                          >
+                            <option value="all">All Years</option>
+                            {loadedYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}
+                          </select>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setCompareIndex(Math.max(0, compareIndex - 1))}
@@ -1385,7 +1595,7 @@ function MultiPositionRadarCharts() {
                           <SearchableSelect
                             value={compareIndex}
                             onChange={setCompareIndex}
-                            options={qualifiedPlayers.map((player, idx) => ({
+                            options={comparePlayers.map((player, idx) => ({
                               value: idx,
                               label: `${player.player} - ${normalizeTeamName(player.team_name)}`,
                               playerName: player.player,
@@ -1396,8 +1606,8 @@ function MultiPositionRadarCharts() {
                           />
                         </div>
                         <button
-                          onClick={() => setCompareIndex(Math.min(qualifiedPlayers.length - 1, compareIndex + 1))}
-                          disabled={compareIndex === qualifiedPlayers.length - 1}
+                          onClick={() => setCompareIndex(Math.min(comparePlayers.length - 1, compareIndex + 1))}
+                          disabled={compareIndex === comparePlayers.length - 1}
                           className={`px-3 py-3 ${colors.inputBg} border ${colors.borderLight} rounded-lg ${colors.text} ${colors.hover} disabled:opacity-30 disabled:cursor-not-allowed transition-colors`}
                           title="Next player"
                         >
@@ -1405,6 +1615,41 @@ function MultiPositionRadarCharts() {
                         </button>
                       </div>
                     </label>
+                  </div>
+                )}
+
+                {cohortCompareMode && draftData && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`${colors.textMuted} font-medium text-sm`}>Draft Cohort:</span>
+                      <div className="flex gap-1">
+                        {[
+                          { id: '1', label: '1st Round' },
+                          { id: '2-3', label: 'Day 2 (Rds 2–3)' },
+                          { id: '4+', label: 'Day 3 (Rds 4–7)' },
+                        ].map(({ id, label }) => (
+                          <button
+                            key={id}
+                            onClick={() => setSelectedCompareCohort(id)}
+                            className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
+                              selectedCompareCohort === id
+                                ? 'bg-blue-500 border-blue-500 text-white font-semibold'
+                                : `${colors.inputBg} ${colors.borderLight} ${colors.textMuted} ${colors.hover}`
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {cohortPool !== null && (
+                        <span className={`text-xs ${colors.textMuted}`}>
+                          ({cohortPool.length} players in pool)
+                        </span>
+                      )}
+                    </div>
+                    {cohortPool !== null && cohortPool.length === 0 && (
+                      <p className="text-xs text-yellow-400">No players matched this cohort in the loaded data. Try loading more seasons.</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1445,30 +1690,6 @@ function MultiPositionRadarCharts() {
                         <span className="text-sm font-medium">Download PNG</span>
                       </button>
                     </div>
-                    {!comparisonMode && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleFindSimilarPlayers}
-                          className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
-                          style={{ color: textColor }}
-                          title="Find similar players"
-                        >
-                          <Users className="w-4 h-4" />
-                          <span className="text-sm font-medium">Find Similar</span>
-                        </button>
-                        {currentPositionConfig.compositeScoreConfig && (
-                          <button
-                            onClick={() => setShowTop10Modal(true)}
-                            className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg px-3 py-2 flex items-center gap-2 transition-all"
-                            style={{ color: textColor }}
-                            title="View top 10 players"
-                          >
-                            <Trophy className="w-4 h-4" />
-                            <span className="text-sm font-medium">Top 10</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                   {comparisonMode && comparePlayer ? (
                     <div>
@@ -1494,6 +1715,11 @@ function MultiPositionRadarCharts() {
                               {currentPlayer.year}
                             </p>
                           )}
+                          {currentPlayer.season && comparePlayer.season && currentPlayer.season !== comparePlayer.season && (
+                            <p className="text-sm ml-7 mt-1 leading-normal font-semibold" style={{ opacity: 0.9, color: primaryColor, lineHeight: '1.6' }}>
+                              {currentPlayer.season} Season
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center text-3xl opacity-50 font-bold leading-none" style={{ color: textColor, lineHeight: '1' }}>vs</div>
                         <div className="text-left">
@@ -1514,6 +1740,11 @@ function MultiPositionRadarCharts() {
                               {comparePlayer.weight && `${comparePlayer.weight} lbs`}
                               {(comparePlayer.height || comparePlayer.weight) && comparePlayer.year && ' • '}
                               {comparePlayer.year}
+                            </p>
+                          )}
+                          {currentPlayer.season && comparePlayer.season && currentPlayer.season !== comparePlayer.season && (
+                            <p className="text-sm ml-7 mt-1 leading-normal font-semibold" style={{ opacity: 0.9, color: player2Color, lineHeight: '1.6' }}>
+                              {comparePlayer.season} Season
                             </p>
                           )}
                         </div>
@@ -1551,6 +1782,11 @@ function MultiPositionRadarCharts() {
                           {currentPlayer.year}
                         </p>
                       )}
+                      {cohortCompareMode && cohortPool !== null && (
+                        <p className="text-sm mt-3 font-semibold" style={{ opacity: 0.9, color: secondaryColor }}>
+                          Normalized vs {selectedCompareCohort === '1' ? '1st Round' : selectedCompareCohort === '2-3' ? 'Day 2 (Rds 2–3)' : 'Day 3 (Rds 4–7)'} {selectedPosition}s ({cohortPool.length} players, all loaded seasons)
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1568,58 +1804,6 @@ function MultiPositionRadarCharts() {
                   </ErrorBoundary>
                 </div>
 
-                {/* Stats Comparison Table */}
-                {comparisonMode && comparePlayer && (
-                  <div className="px-8 pb-8" style={{ backgroundColor: comparisonMode ? bgColor : `${primaryColor}dd` }}>
-                    <div className={`${colors.cardBg} backdrop-blur-sm rounded-xl overflow-hidden border ${colors.border} shadow-lg`}>
-                      <div className={`${colors.bgTertiary} px-4 py-3 border-b ${colors.border}`}>
-                        <h3 className={`text-sm font-bold ${colors.text} uppercase tracking-wide`}>Statistical Comparison</h3>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className={`${colors.bgSecondary} border-b ${colors.border}`}>
-                            <tr>
-                              <th className={`px-4 py-3 text-left text-xs font-semibold ${colors.textMuted} uppercase tracking-wider`}>Stat</th>
-                              <th className={`px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider`} style={{ color: primaryColor }}>{currentPlayer.player.split(' ')[0]}</th>
-                              <th className={`px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider`} style={{ color: player2Color }}>{comparePlayer.player.split(' ')[0]}</th>
-                              <th className={`px-4 py-3 text-center text-xs font-semibold ${colors.textMuted} uppercase tracking-wider`}>Difference</th>
-                            </tr>
-                          </thead>
-                          <tbody className={`${colors.bgSecondary} divide-y ${colors.border}`}>
-                            {radarData.map((stat, idx) => {
-                              const value1 = stat.value1 ?? 0;
-                              const value2 = stat.value2 ?? 0;
-                              const diff = value1 - value2;
-                              const isInverted = currentPositionConfig.invertedStats?.includes(stat.statKey);
-                              const player1Better = isInverted ? diff < 0 : diff > 0;
-
-                              return (
-                                <tr key={idx} className={`${colors.hover} transition-colors`}>
-                                  <td className={`px-4 py-3 text-sm font-medium ${colors.text}`}>{stat.stat}</td>
-                                  <td className={`px-4 py-3 text-right text-sm font-semibold`} style={{
-                                    color: primaryColor,
-                                    fontWeight: player1Better ? 700 : 400
-                                  }}>
-                                    {value1.toFixed(1)}
-                                  </td>
-                                  <td className={`px-4 py-3 text-right text-sm font-semibold`} style={{
-                                    color: player2Color,
-                                    fontWeight: !player1Better ? 700 : 400
-                                  }}>
-                                    {value2.toFixed(1)}
-                                  </td>
-                                  <td className={`px-4 py-3 text-center text-sm ${colors.textMuted}`}>
-                                    {diff > 0 ? '+' : ''}{diff.toFixed(1)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 
                 {/* Credits */}
                 <div className="px-6 py-4 text-center border-t" style={{

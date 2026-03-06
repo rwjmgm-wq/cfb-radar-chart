@@ -95,7 +95,7 @@ const POSITION_CONFIGS = {
       'avoided_tackles': 'Total missed tackles forced on defenders'
     },
     invertedStats: ['drop_rate'],
-    outlierStats: ['yards_after_catch_per_reception', 'drop_rate'],
+    outlierStats: ['zone_yprr', 'man_yprr', 'yards_after_catch_per_reception', 'drop_rate', 'avoided_tackles'],
     usageColumn: 'routes',
     minUsage: 100,
     positionFilter: 'WR',
@@ -399,7 +399,7 @@ const POSITION_CONFIGS = {
       'grades_run_block': 'PFF grade for run blocking as an in-line blocker'
     },
     invertedStats: ['drop_rate'],
-    outlierStats: ['yards_after_catch_per_reception', 'drop_rate'],
+    outlierStats: ['zone_yprr', 'man_yprr', 'yards_after_catch_per_reception', 'drop_rate'],
     usageColumn: 'routes',
     minUsage: 75,
     positionFilter: 'TE',
