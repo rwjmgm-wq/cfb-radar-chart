@@ -555,7 +555,6 @@ function MultiPositionRadarCharts() {
             return false;
           }
 
-
           return true;
         })
         .sort((a, b) => {
@@ -1451,6 +1450,7 @@ return true;
                       Favorites Only {favorites.length > 0 && `(${favorites.length})`}
                     </span>
                   </label>
+
 
                   <span className={`text-sm ${colors.textMuted} ${theme === 'dark' ? 'bg-slate-700/30' : 'bg-gray-200'} px-3 py-2 rounded-lg`}>
                     {showTopTenPercent

@@ -95,7 +95,7 @@ const POSITION_CONFIGS = {
       'avoided_tackles': 'Total missed tackles forced on defenders'
     },
     invertedStats: ['drop_rate'],
-    outlierStats: ['zone_yprr', 'man_yprr', 'yards_after_catch_per_reception', 'drop_rate', 'avoided_tackles'],
+    outlierStats: ['zone_yprr', 'man_yprr', 'yards_after_catch_per_reception', 'drop_rate'],
     usageColumn: 'routes',
     minUsage: 100,
     positionFilter: 'WR',

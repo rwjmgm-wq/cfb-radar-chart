@@ -139,6 +139,19 @@ const TEAM_COLORS = {
   'WEST VIRGINIA': ['#002855', '#EAAA00'],
   'WISCONSIN': ['#C5050C', '#FFFFFF'],
   'WYOMING': ['#492F24', '#FFC425'],
+  'IDAHO': ['#003082', '#C8A013'],
+  'WEST GEORGIA': ['#BA0C2F', '#13284C'],
+  'NORTH DAKOTA STATE': ['#006633', '#FFC72C'],
+};
+
+// FCS schools that appear in the dataset
+export const FCS_TEAMS = new Set([
+  'WEST GEORGIA',
+]);
+
+export const isFCSTeam = (teamName) => {
+  if (!teamName) return false;
+  return FCS_TEAMS.has(normalizeTeamName(teamName.toUpperCase().trim()));
 };
 
 export const normalizeTeamName = (teamName) => {
@@ -307,6 +320,13 @@ export const normalizeTeamName = (teamName) => {
     'ULL': 'LOUISIANA',
     'COAST CAR': 'COASTAL CAROLINA',
     'COASTAL CAR': 'COASTAL CAROLINA',
+    'BOSTON COL': 'BOSTON COLLEGE',
+    'C MICHIGAN': 'CENTRAL MICHIGAN',
+    'IDAHO': 'IDAHO',
+    'W GEORGIA': 'WEST GEORGIA',
+    'N DAK ST': 'NORTH DAKOTA STATE',
+    'NORTH DAKOTA ST': 'NORTH DAKOTA STATE',
+    'NDSU': 'NORTH DAKOTA STATE',
   };
   return nameMap[normalized] || teamName;
 };
