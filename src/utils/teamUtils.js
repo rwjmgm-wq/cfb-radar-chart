@@ -142,6 +142,7 @@ const TEAM_COLORS = {
   'IDAHO': ['#003082', '#C8A013'],
   'WEST GEORGIA': ['#BA0C2F', '#13284C'],
   'NORTH DAKOTA STATE': ['#006633', '#FFC72C'],
+  'SE LOUISIANA': ['#006341', '#C8A415'],
 };
 
 // FCS schools that appear in the dataset
@@ -327,6 +328,10 @@ export const normalizeTeamName = (teamName) => {
     'N DAK ST': 'NORTH DAKOTA STATE',
     'NORTH DAKOTA ST': 'NORTH DAKOTA STATE',
     'NDSU': 'NORTH DAKOTA STATE',
+    'SE LA': 'SE LOUISIANA',
+    'SE LOUISIANA': 'SE LOUISIANA',
+    'SOUTHEASTERN LOUISIANA': 'SE LOUISIANA',
+    'SLU': 'SE LOUISIANA',
   };
   return nameMap[normalized] || teamName;
 };
