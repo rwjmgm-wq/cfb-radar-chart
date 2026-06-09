@@ -443,9 +443,9 @@ const POSITION_CONFIGS = {
       'stop_percent': 'Stop Percentage',
       'tackles_for_loss': 'Tackles for Loss',
       'missed_tackle_rate': 'Missed Tackle Rate',
-      'snap_counts_dl_a_gap': 'A Gap Snaps',
-      'snap_counts_dl_b_gap': 'B Gap Snaps',
-      'snap_counts_dl_over_t': 'Over Tackle Snaps'
+      'snap_counts_dl_a_gap': 'A Gap Snap %',
+      'snap_counts_dl_b_gap': 'B Gap Snap %',
+      'snap_counts_dl_over_t': 'Over Tackle Snap %'
     },
     descriptions: {
       'grades_defense': 'Overall PFF defensive grade for interior defensive linemen',
@@ -457,12 +457,14 @@ const POSITION_CONFIGS = {
       'stop_percent': 'Percentage of run plays stopped at or before the line',
       'tackles_for_loss': 'Total tackles made behind the line of scrimmage',
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)',
-      'snap_counts_dl_a_gap': 'Number of snaps lined up in the A gap',
-      'snap_counts_dl_b_gap': 'Number of snaps lined up in the B gap',
-      'snap_counts_dl_over_t': 'Number of snaps lined up over the offensive tackle'
+      'snap_counts_dl_a_gap': 'Percentage of total snaps lined up in the A gap',
+      'snap_counts_dl_b_gap': 'Percentage of total snaps lined up in the B gap',
+      'snap_counts_dl_over_t': 'Percentage of total snaps lined up over the offensive tackle'
     },
     invertedStats: ['missed_tackle_rate'],
     outlierStats: ['total_pressures', 'pass_rush_win_rate', 'prp'],
+    snapShareStats: ['snap_counts_dl_a_gap', 'snap_counts_dl_b_gap', 'snap_counts_dl_over_t'],
+    snapShareDenominator: 'snap_counts_defense',
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: ['DL', 'DI'],
@@ -562,8 +564,8 @@ const POSITION_CONFIGS = {
       'stop_percent': 'Stop Percentage',
       'grades_tackle': 'Tackle Grade',
       'missed_tackle_rate': 'Missed Tackle Rate',
-      'snap_counts_box': 'Box Safety Snaps',
-      'snap_counts_fs': 'Free Safety Snaps'
+      'snap_counts_box': 'Box Snap %',
+      'snap_counts_fs': 'Free Safety Snap %'
     },
     descriptions: {
       'grades_defense': 'Overall PFF defensive grade for safety play',
@@ -574,12 +576,14 @@ const POSITION_CONFIGS = {
       'stop_percent': 'Percentage of run plays stopped at or before the line',
       'grades_tackle': 'PFF grade for tackling technique and effectiveness',
       'missed_tackle_rate': 'Percentage of tackle attempts that were missed (lower is better)',
-      'snap_counts_box': 'Number of snaps played in the box (near line of scrimmage)',
-      'snap_counts_fs': 'Number of snaps played at free safety (deep middle)'
+      'snap_counts_box': 'Percentage of total snaps played in the box (near line of scrimmage)',
+      'snap_counts_fs': 'Percentage of total snaps played at free safety (deep middle)'
     },
     invertedStats: ['qb_rating_against', 'missed_tackle_rate'],
     outlierStats: ['missed_tackle_rate', 'stop_percent'],
     twoSidedOutlierStats: ['qb_rating_against'],
+    snapShareStats: ['snap_counts_box', 'snap_counts_fs'],
+    snapShareDenominator: 'snap_counts_defense',
     usageColumn: 'snap_counts_defense',
     minUsage: 100,
     positionFilter: 'S',

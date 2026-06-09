@@ -9,6 +9,24 @@ import { normalizeTeamName, getTeamColors } from './utils/teamUtils';
 import POSITION_CONFIGS from './config/positionConfigs';
 import { DRAFT_PICKS } from './data/draftData';
 
+// Resolve a stat value for a player. Most stats are read directly, but
+// `snapShareStats` (per-alignment snap counts for S/DL) are expressed as a
+// percentage of the player's total snaps so the chart shows alignment usage
+// share rather than raw counts.
+const getStatValue = (player, stat, config) => {
+  if (!player) return null;
+  if (config && (config.snapShareStats || []).includes(stat)) {
+    const total = player[config.snapShareDenominator || 'snap_counts_defense'];
+    const value = player[stat];
+    if (total != null && total > 0 && value != null && !isNaN(value)) {
+      return (value / total) * 100;
+    }
+    return null;
+  }
+  const value = player[stat];
+  return value != null && !isNaN(value) ? value : null;
+};
+
 function MultiPositionRadarCharts() {
   const [selectedPosition, setSelectedPosition] = useState('QB');
   const [yearlyData, setYearlyData] = useState({});
@@ -245,6 +263,30 @@ function MultiPositionRadarCharts() {
 
     try {
       const fileValidation = [];
+
+      // PFF exports reuse the same generic column names across files for
+      // different concepts (e.g. `avg_depth_of_target` is passing depth in
+      // passing_summary but receiving target depth in receiving_summary;
+      // `missed_tackle_rate` is overall in defense_summary but run-only in
+      // run_defense_summary). The merge-by-player below would otherwise be
+      // last-file-wins and silently corrupt a player who appears in several
+      // files. classifySource() labels each row with the kind of file it came
+      // from so COLUMN_OWNER can pin those columns to their authoritative file.
+      const classifySource = (name) => {
+        const n = (name || '').toLowerCase();
+        if (n.includes('passing')) return 'passing';
+        if (n.includes('rushing')) return 'rushing';
+        if (n.includes('receiving')) return n.includes('scheme') ? 'receiving_scheme' : 'receiving';
+        if (n.includes('pass_rush') || n.includes('pass rush')) return 'pass_rush';
+        if (n.includes('run_defense') || n.includes('run defense')) return 'run_defense';
+        if (n.includes('coverage')) return n.includes('scheme') ? 'coverage_scheme' : 'coverage';
+        if (n.includes('pass_block') || n.includes('pass block')) return 'pass_blocking';
+        if (n.includes('run_block') || n.includes('run block') || n.includes('blockng')) return 'run_blocking';
+        if (n.includes('block')) return 'blocking';
+        if (n.includes('defense')) return 'defense';
+        return n.replace(/\.csv$/, '').replace(/\s*\(\d+\)\s*$/, '').trim();
+      };
+
       const parsedFiles = await Promise.all(
         files.map(async (file) => {
           const text = await file.text();
@@ -263,6 +305,8 @@ function MultiPositionRadarCharts() {
           if (!hasPlayerColumn) {
             fileValidation.push(`⚠️ ${file.name}: Missing 'player' or 'name' column`);
           }
+
+          const source = classifySource(file.name);
 
           return lines.slice(1).map(line => {
             const values = [];
@@ -292,58 +336,104 @@ function MultiPositionRadarCharts() {
                 obj[header] = isNaN(numValue) ? value : numValue;
               }
             });
+            obj.__source = source;
             return obj;
           });
         })
       );
 
-      // Merge CSVs for this year by player name
+      // COLUMN_OWNER pins an ambiguous column to the source file it truly
+      // belongs to. A row from a different file may only *fill* the column as a
+      // fallback (when the owning file isn't present), never overwrite it.
+      const COLUMN_OWNER = {
+        avg_depth_of_target: 'passing',        // QB passing depth, not receiving target depth
+        missed_tackle_rate: 'defense',         // overall, not the run-only / coverage-only splits
+        grades_defense: 'defense',
+        grades_run_defense: 'defense',
+        grades_pass_rush_defense: 'defense',
+        yprr: 'receiving',                     // receiving Y/RR, not a rushing row's 0
+        grades_pass_route: 'receiving',
+        drop_rate: 'receiving',
+        grades_pass_block: 'pass_blocking',
+      };
+
+      // `ypa` and the offensive grades mean different things for a passer vs a
+      // rusher (yards per pass attempt vs per rush attempt). For an actual
+      // quarterback, a non-passing row (no `dropbacks`) must not clobber them.
+      const QB_OWNED_STATS = ['ypa', 'grades_offense', 'grades_pass', 'grades_run'];
+
+      // Merge CSVs for this year. Key by player_id when present so that two
+      // different players who share a name (e.g. a QB and an LB both named
+      // "Carter Jones") are never fused into one record; fall back to name.
       const mergedData = {};
+      const ownerLocked = {}; // mergeKey -> Set of columns already written by their owning file
+
+      const assignStat = (mergeKey, target, key, value, source) => {
+        const owner = COLUMN_OWNER[key];
+        if (!owner) { target[key] = value; return; }
+        const locked = ownerLocked[mergeKey] || (ownerLocked[mergeKey] = new Set());
+        if (source === owner) {
+          target[key] = value;
+          locked.add(key);
+        } else if (!locked.has(key) && target[key] == null) {
+          target[key] = value; // fallback only when the owning file is absent
+        }
+      };
+
       parsedFiles.forEach(csvData => {
         csvData.forEach(row => {
           const playerName = row.player || row.name;
           if (!playerName) return;
 
+          const mergeKey = row.player_id != null ? `id:${row.player_id}` : `name:${playerName}`;
+          const source = row.__source;
           const playerPosition = (row.position || row.pos || '').toUpperCase().trim();
 
-          if (!mergedData[playerName]) {
-            mergedData[playerName] = {
-              ...row,
-              player: playerName,
-              season: year,
-              height: row.ht || row.height,
-              weight: row.wt || row.weight,
-            };
-          } else {
-            const isWR = playerPosition === 'WR';
-            const isRB = playerPosition === 'RB' || playerPosition === 'HB';
-            const statsToIgnore = new Set();
-
-            if (isWR) {
-              if (mergedData[playerName].avoided_tackles && row.attempts) statsToIgnore.add('avoided_tackles');
-            } else if (isRB) {
-              if (mergedData[playerName].avoided_tackles && row.routes) statsToIgnore.add('avoided_tackles');
-            }
-
-            Object.keys(row).forEach(key => {
-              if (!statsToIgnore.has(key)) mergedData[playerName][key] = row[key];
-            });
-
-            if (row.ht) mergedData[playerName].height = row.ht;
-            if (row.wt) mergedData[playerName].weight = row.wt;
+          if (!mergedData[mergeKey]) {
+            mergedData[mergeKey] = { player: playerName, season: year };
           }
+          const target = mergedData[mergeKey];
+
+          const isWR = playerPosition === 'WR';
+          const isRB = playerPosition === 'RB' || playerPosition === 'HB';
+          const statsToIgnore = new Set();
+
+          if (isWR) {
+            if (target.avoided_tackles && row.attempts) statsToIgnore.add('avoided_tackles');
+          } else if (isRB) {
+            if (target.avoided_tackles && row.routes) statsToIgnore.add('avoided_tackles');
+          }
+
+          // A real quarterback (position QB, or 100+ dropbacks even if the
+          // position field is missing) keeps its passing-summary ypa/grades;
+          // a receiving/rushing row (no dropbacks) can't overwrite them.
+          const existingIsQB =
+            (target.position || target.pos || '').toUpperCase().trim() === 'QB' ||
+            (target.dropbacks || 0) >= 100;
+          if (existingIsQB && row.dropbacks == null) {
+            QB_OWNED_STATS.forEach(stat => statsToIgnore.add(stat));
+          }
+
+          Object.keys(row).forEach(key => {
+            if (key === '__source' || statsToIgnore.has(key)) return;
+            assignStat(mergeKey, target, key, row[key], source);
+          });
+
+          if (row.ht) target.height = row.ht;
+          else if (target.height == null) target.height = row.height || null;
+          if (row.wt) target.weight = row.wt;
+          else if (target.weight == null) target.weight = row.weight || null;
         });
       });
 
-      // Merge with player metadata
-      Object.keys(mergedData).forEach(playerName => {
-        if (playerMetadata[playerName]) {
-          if (!mergedData[playerName].height && playerMetadata[playerName].height)
-            mergedData[playerName].height = playerMetadata[playerName].height;
-          if (!mergedData[playerName].weight && playerMetadata[playerName].weight)
-            mergedData[playerName].weight = playerMetadata[playerName].weight;
-          if (!mergedData[playerName].position && !mergedData[playerName].pos && playerMetadata[playerName].position)
-            mergedData[playerName].position = playerMetadata[playerName].position;
+      // Merge with player metadata (keyed by player name, which is all the
+      // bundled roster metadata has — mergedData is now keyed by player_id).
+      Object.values(mergedData).forEach(playerObj => {
+        const meta = playerMetadata[playerObj.player];
+        if (meta) {
+          if (!playerObj.height && meta.height) playerObj.height = meta.height;
+          if (!playerObj.weight && meta.weight) playerObj.weight = meta.weight;
+          if (!playerObj.position && !playerObj.pos && meta.position) playerObj.position = meta.position;
         }
       });
 
@@ -456,7 +546,7 @@ function MultiPositionRadarCharts() {
     // Calculate ranges for normalization
     const ranges = {};
     stats.forEach(stat => {
-      const values = allPlayers.map(p => p[stat]).filter(v => v != null && !isNaN(v));
+      const values = allPlayers.map(p => getStatValue(p, stat, positionConfig)).filter(v => v != null && !isNaN(v));
       if (values.length > 0) {
         ranges[stat] = {
           min: Math.min(...values),
@@ -473,8 +563,8 @@ function MultiPositionRadarCharts() {
         let validStats = 0;
 
         stats.forEach(stat => {
-          const targetValue = targetPlayer[stat];
-          const playerValue = player[stat];
+          const targetValue = getStatValue(targetPlayer, stat, positionConfig);
+          const playerValue = getStatValue(player, stat, positionConfig);
 
           if (targetValue != null && !isNaN(targetValue) &&
               playerValue != null && !isNaN(playerValue) &&
@@ -715,7 +805,7 @@ return true;
 
     const ranges = {};
     currentPositionConfig.stats.forEach(stat => {
-      const values = pool.map(p => p[stat]).filter(v => v != null && !isNaN(v));
+      const values = pool.map(p => getStatValue(p, stat, currentPositionConfig)).filter(v => v != null && !isNaN(v));
       if (values.length === 0) {
         ranges[stat] = { min: 0, max: 100 };
       } else if ((currentPositionConfig.twoSidedOutlierStats || []).includes(stat)) {
@@ -731,7 +821,7 @@ return true;
     });
 
     return currentPositionConfig.stats.map(stat => {
-      const value = player[stat];
+      const value = getStatValue(player, stat, currentPositionConfig);
       let normalized = 50;
       
       if (value != null && !isNaN(value) && ranges[stat].max !== ranges[stat].min) {
